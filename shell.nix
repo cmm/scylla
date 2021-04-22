@@ -4,18 +4,30 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-{
-  pkgs ? null,
-  mode ? "dev",
-  useCcache ? false
-}:
-import ./default.nix ({
-  inherit mode useCcache;
-  testInputsFrom = pkgs: with pkgs; [
-    python3Packages.boto3
-    python3Packages.colorama
-    python3Packages.pytest
+args:
+
+import ./default.nix (args // {
+  shell = true;
+
+  devInputs = { pkgs, llvm, withPatches }: with pkgs; [
+    # for impure building
+    ccache
+    distcc
+
+    # for debugging
+    binutils  # addr2line etc.
+    elfutils
+    (withPatches gdb [
+      {
+        url = "https://github.com/cmm/gnu-binutils/commit/eb9148f3b9b377c5c4bae8cb4e29e5fdccd45ab0.patch";
+        sha256 = "1qhc8a6lssnvpjvfc6sidfv9hmz96gxz4czcpannd7z5dd82mv1l";
+      }
+    ])
+    llvm.llvm
+    lz4       # coredumps on modern Systemd installations are lz4-compressed
+
+    # etc
+    diffutils
+    colordiff
   ];
-  gitPkg = pkgs: pkgs.gitFull;
-} //
-(if pkgs != null then { inherit pkgs; } else {}))
+})
