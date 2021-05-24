@@ -817,6 +817,7 @@ public:
         size_t segments_compacted;
         uint64_t memory_allocated;
         uint64_t memory_compacted;
+        uint64_t memory_evicted;
     };
 private:
     stats _stats{};
@@ -824,6 +825,7 @@ public:
     const stats& statistics() const { return _stats; }
     void on_segment_compaction(size_t used_size);
     void on_memory_allocation(size_t size);
+    void on_memory_eviction(size_t size);
     size_t unreserved_free_segments() const { return _free_segments - std::min(_free_segments, _emergency_reserve_max); }
     size_t free_segments() const { return _free_segments; }
 };
@@ -1030,6 +1032,10 @@ void segment_pool::on_segment_compaction(size_t used_size) {
 
 void segment_pool::on_memory_allocation(size_t size) {
     _stats.memory_allocated += size;
+}
+
+void segment_pool::on_memory_eviction(size_t size) {
+    _stats.memory_evicted += size;
 }
 
 // RAII wrapper to maintain segment_pool::current_emergency_reserve_goal()
@@ -1702,7 +1708,10 @@ public:
 
     memory::reclaiming_result evict_some() {
         ++_invalidate_counter;
-        return _eviction_fn();
+        auto used = occupancy().used_space();
+        auto ret = _eviction_fn();
+        shard_segment_pool.on_memory_eviction(used - occupancy().used_space());
+        return ret;
     }
 
     void make_not_evictable() {
