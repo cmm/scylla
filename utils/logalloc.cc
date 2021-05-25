@@ -816,6 +816,7 @@ public:
     struct stats {
         size_t segments_compacted;
         uint64_t memory_allocated;
+        uint64_t memory_freed;
         uint64_t memory_compacted;
     };
 private:
@@ -824,6 +825,7 @@ public:
     const stats& statistics() const { return _stats; }
     void on_segment_compaction(size_t used_size);
     void on_memory_allocation(size_t size);
+    void on_memory_deallocation(size_t size);
     size_t unreserved_free_segments() const { return _free_segments - std::min(_free_segments, _emergency_reserve_max); }
     size_t free_segments() const { return _free_segments; }
 };
@@ -1030,6 +1032,10 @@ void segment_pool::on_segment_compaction(size_t used_size) {
 
 void segment_pool::on_memory_allocation(size_t size) {
     _stats.memory_allocated += size;
+}
+
+void segment_pool::on_memory_deallocation(size_t size) {
+    _stats.memory_freed += size;
 }
 
 // RAII wrapper to maintain segment_pool::current_emergency_reserve_goal()
@@ -1571,6 +1577,7 @@ public:
         }
 
         seg_desc.record_free(dead_size);
+        shard_segment_pool.on_memory_deallocation(dead_size);
 
         if (seg != _active) {
             if (seg_desc.is_empty()) {
@@ -2226,7 +2233,10 @@ tracker::impl::impl() {
                         sm::description("Counts number of bytes which were copied as part of segment compaction.")),
 
         sm::make_derive("memory_allocated", [this] { return shard_segment_pool.statistics().memory_allocated; },
-                        sm::description("Counts number of bytes which were requested from LSA allocator.")),
+                        sm::description("Counts number of bytes which were requested from LSA.")),
+
+        sm::make_derive("memory_freed", [this] { return shard_segment_pool.statistics().memory_freed; },
+                        sm::description("Counts number of bytes which were requested to be freed in LSA.")),
     });
 }
 
@@ -2474,6 +2484,10 @@ future<> prime_segment_pool(size_t available_memory, size_t min_free_memory) {
 
 uint64_t memory_allocated() {
     return shard_segment_pool.statistics().memory_allocated;
+}
+
+uint64_t memory_freed() {
+    return shard_segment_pool.statistics().memory_freed;
 }
 
 uint64_t memory_compacted() {
