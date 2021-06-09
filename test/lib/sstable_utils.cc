@@ -28,6 +28,8 @@
 #include <boost/range/irange.hpp>
 #include <boost/range/adaptor/map.hpp>
 #include <boost/range/algorithm/sort.hpp>
+#include "seastar/core/seastar.hh"
+#include "sstables/version.hh"
 #include "test/lib/flat_mutation_reader_assertions.hh"
 #include "test/lib/reader_permit.hh"
 #include <seastar/core/reactor.hh>
@@ -166,24 +168,33 @@ std::vector<std::pair<sstring, dht::token>> token_generation_for_current_shard(u
     return token_generation_for_shard(tokens_to_generate, this_shard_id());
 }
 
+static sstring toc_fname(schema_ptr schema, const sstring& dir, unsigned int generation, sstable_version_types v) {
+    return sstable::filename(dir, schema->ks_name(), schema->cf_name(), v, generation,
+                             sstable_format_types::big, component_type::TOC);
+}
+
 future<shared_sstable> test_env::reusable_sst(schema_ptr schema, sstring dir, unsigned long generation) {
-    return seastar::do_with(shared_sstable(), std::exception_ptr(), std::move(dir), all_sstable_versions.rbegin(),
-            [this, schema, generation] (shared_sstable& ret_sst, std::exception_ptr& ret_ep, sstring& dir, auto& v) {
-        return do_until([&] { return ret_sst || v == all_sstable_versions.rend(); }, [this, schema, generation, &ret_sst, &ret_ep, &dir, &v] {
-            return reusable_sst(schema, dir, generation, *v++).then_wrapped([&] (future<shared_sstable> f) {
-                if (f.failed()) {
-                    ret_ep = f.get_exception();
-                } else {
-                    ret_sst = f.get0();
-                }
+    return seastar::do_with(shared_sstable(), std::move(schema), std::move(dir), std::move(generation), all_sstable_versions.rbegin(),
+            [this] (shared_sstable& ret_sst, auto& schema, auto& dir, auto& generation, auto& v) {
+        return do_until([&] { return ret_sst || v == all_sstable_versions.rend(); }, [this, schema, generation, &ret_sst, &dir, &v] {
+            auto version = *v++;
+            return seastar::do_with(std::move(toc_fname(schema, dir, generation, version)), std::move(version),
+                    [&] (const sstring& fname, auto& version) {
+                return file_exists(fname).then([&] (bool exists) {
+                    if (exists) {
+                        return reusable_sst(schema, dir, generation, version).then([&] (shared_sstable f) {
+                            ret_sst = f;
+                        });
+                    } else {
+                        return make_ready_future<>();
+                    }
+                });
             });
         }).then([&] {
-            if (ret_sst) {
-                return make_ready_future<shared_sstable>(std::move(ret_sst));
-            } else {
-                assert(ret_ep);
-                return make_exception_future<shared_sstable>(std::move(ret_ep));
+            if (!ret_sst) {
+                throw sst_not_found(dir, generation);
             }
+            return make_ready_future<shared_sstable>(std::move(ret_sst));
         });
     });
 }
