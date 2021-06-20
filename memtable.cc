@@ -524,6 +524,9 @@ public:
     void update_bytes_read(uint64_t delta) {
         _mt.add_flushed_memory(delta);
     }
+    void on_range_tombstone_read() {
+        ++_mt._table_stats.memtable_range_tombstone_reads;
+    }
     explicit flush_memory_accounter(memtable& mt)
         : _mt(mt)
 	{}
@@ -551,6 +554,7 @@ public:
     // are safe, and worst case we will allow a bit fewer requests in.
     void operator()(const range_tombstone& rt) {
         _accounter.update_bytes_read(rt.minimal_memory_usage(_schema));
+        _accounter.on_range_tombstone_read();
     }
 
     void operator()(const static_row& sr) {
