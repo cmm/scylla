@@ -972,6 +972,7 @@ public:
 
 class mp_row_consumer_m : public consumer_m {
     mp_row_consumer_reader_mx* _reader;
+    const shared_sstable& _sst;
     schema_ptr _schema;
     const query::partition_slice& _slice;
     std::optional<mutation_fragment_filter> _mf_filter;
@@ -1130,6 +1131,7 @@ public:
                         const shared_sstable& sst)
         : consumer_m(std::move(permit), std::move(trace_state), pc)
         , _reader(reader)
+        , _sst(sst)
         , _schema(schema)
         , _slice(slice)
         , _fwd(fwd)
@@ -1281,6 +1283,9 @@ public:
         _in_progress_row->apply(tomb);
         if (shadowable_tomb) {
             _in_progress_row->apply(shadowable_tombstone{shadowable_tomb});
+        }
+        if (_in_progress_row->tomb()) {
+            _sst->get_stats().on_dead_row_read();
         }
         return proceed::yes;
     }
