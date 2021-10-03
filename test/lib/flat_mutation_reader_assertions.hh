@@ -689,7 +689,7 @@ public:
         if (!mfo->is_range_tombstone_change()) {
             BOOST_FAIL(format("Expected range tombstone change {}, but got {}", rt, mutation_fragment_v2::printer(*_reader.schema(), *mfo)));
         }
-        if (!mfo->as_range_tombstone_change().equal(*_reader.schema(), rt)) {
+        if (!mfo->as_range_tombstone_change().equal_or_better(*_reader.schema(), rt)) {
             BOOST_FAIL(format("Expected {}, but got {}", rt, mutation_fragment_v2::printer(*_reader.schema(), *mfo)));
         }
         return *this;
