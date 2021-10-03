@@ -69,6 +69,10 @@ public:
         position_in_partition::equal_compare eq(s);
         return _tomb == other._tomb && eq(_pos, other._pos);
     }
+    bool equal_or_better(const schema& s, const range_tombstone_change& other) const {
+        position_in_partition::equal_compare eq(s);
+        return _tomb >= other._tomb && eq(_pos, other._pos);
+    }
     friend std::ostream& operator<<(std::ostream& out, const range_tombstone_change&);
 };
 
