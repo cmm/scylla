@@ -69,6 +69,18 @@ public:
         position_in_partition::equal_compare eq(s);
         return _tomb == other._tomb && eq(_pos, other._pos);
     }
+    // Some tests use pre-created sstables with regular repeating
+    // structure.  While the timestamps of the tombstones therein can
+    // be controlled at table creation time with "USING TIMESTAMP",
+    // deletion times cannot be (by regular means, anyway) and thus
+    // may start drifting forward at some point, making the test
+    // writer's life unnecessarily complicated.  So let's provide a
+    // way to ignore deletion times where they are irrelevant for the
+    // test.
+    bool equal_ignoring_deletion_time(const schema& s, const range_tombstone_change& other) const {
+        position_in_partition::equal_compare eq(s);
+        return _tomb.timestamp == other._tomb.timestamp && eq(_pos, other._pos);
+    }
     friend std::ostream& operator<<(std::ostream& out, const range_tombstone_change&);
 };
 

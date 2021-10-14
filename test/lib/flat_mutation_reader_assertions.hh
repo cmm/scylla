@@ -500,6 +500,7 @@ flat_reader_assertions assert_that(flat_mutation_reader r) {
 class flat_reader_assertions_v2 {
     flat_mutation_reader_v2 _reader;
     dht::partition_range _pr;
+    bool _ignore_deletion_time = false;
 private:
     mutation_fragment_v2_opt read_next() {
         return _reader().get0();
@@ -523,6 +524,11 @@ public:
             _pr = std::move(o._pr);
         }
         return *this;
+    }
+
+    flat_reader_assertions_v2&& ignore_deletion_time(bool ignore = true) {
+        _ignore_deletion_time = ignore;
+        return std::move(*this);
     }
 
     flat_reader_assertions_v2& produces_partition_start(const dht::decorated_key& dk,
@@ -689,7 +695,8 @@ public:
         if (!mfo->is_range_tombstone_change()) {
             BOOST_FAIL(format("Expected range tombstone change {}, but got {}", rt, mutation_fragment_v2::printer(*_reader.schema(), *mfo)));
         }
-        if (!mfo->as_range_tombstone_change().equal(*_reader.schema(), rt)) {
+        auto equal = _ignore_deletion_time ? &range_tombstone_change::equal_ignoring_deletion_time : &range_tombstone_change::equal;
+        if (!((mfo->as_range_tombstone_change()).*equal)(*_reader.schema(), rt)) {
             BOOST_FAIL(format("Expected {}, but got {}", rt, mutation_fragment_v2::printer(*_reader.schema(), *mfo)));
         }
         return *this;
