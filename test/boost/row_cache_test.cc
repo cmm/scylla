@@ -2202,8 +2202,8 @@ SEASTAR_TEST_CASE(test_tombstone_and_row_with_small_buffer) {
         auto pr = dht::partition_range::make_singular(pk);
 
         mutation m1(s.schema(), pk);
-        auto rt1 = s.make_range_tombstone(query::clustering_range::make(s.make_ckey(1), s.make_ckey(2)),
-                                          s.new_tombstone());
+        auto rt1_range = query::clustering_range::make(s.make_ckey(1), s.make_ckey(2));
+        auto rt1 = s.make_range_tombstone(rt1_range, s.new_tombstone());
         m1.partition().apply_delete(*s.schema(), rt1);
         s.add_row(m1, s.make_ckey(1), "v1");
 
@@ -2218,7 +2218,8 @@ SEASTAR_TEST_CASE(test_tombstone_and_row_with_small_buffer) {
 
         assert_that(std::move(rd)).produces_partition_start(pk)
             .produces_range_tombstone(rt1)
-            .produces_row_with_key(s.make_ckey(1));
+            .produces_row_with_key(s.make_ckey(1))
+            .may_produce_tombstones(position_range(rt1_range));
     });
 }
 
