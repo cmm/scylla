@@ -581,6 +581,37 @@ schema_ptr system_keyspace::size_estimates() {
     return large_partitions;
 }
 
+/*static*/ schema_ptr system_keyspace::large_row_counts() {
+    static thread_local auto large_row_counts = [] {
+        schema_builder builder(make_shared_schema(generate_legacy_id(NAME, LARGE_ROW_COUNTS), NAME, LARGE_ROW_COUNTS,
+        // partition key
+        {{"keyspace_name", utf8_type}, {"table_name", utf8_type}},
+        // clustering key
+        {
+            {"sstable_name", utf8_type},
+            {"row_count", reversed_type_impl::get_instance(long_type)},
+            {"partition_key", utf8_type}
+        }, // CLUSTERING ORDER BY (number_of_rows DESC)
+        // regular columns
+        {{"compaction_time", timestamp_type}},
+        // static columns
+        {},
+        // regular column name type
+        utf8_type,
+        // comment
+        "partitions with row count larger than specified threshold"
+        ));
+        builder.set_gc_grace_seconds(0);
+        builder.with_version(generate_schema_version(builder.uuid()));
+        // FIXME re-enable caching for this and the other two
+        // system.large_* tables once
+        // https://github.com/scylladb/scylla/issues/3288 is fixed
+        builder.set_caching_options(caching_options::get_disabled_caching_options());
+        return builder.build(schema_builder::compact_storage::no);
+    }();
+    return large_row_counts;
+}
+
 schema_ptr system_keyspace::large_rows() {
     static thread_local auto large_rows = [] {
         auto id = generate_legacy_id(NAME, LARGE_ROWS);
@@ -1964,7 +1995,8 @@ std::vector<schema_ptr> system_keyspace::all_tables(const db::config& cfg) {
     r.insert(r.end(), { built_indexes(), hints(), batchlog(), paxos(), local(),
                     peers(), peer_events(), range_xfers(),
                     compactions_in_progress(), compaction_history(),
-                    sstable_activity(), clients(), size_estimates(), large_partitions(), large_rows(), large_cells(),
+                    sstable_activity(), clients(), size_estimates(),
+                    large_partitions(), large_row_counts(), large_rows(), large_cells(),
                     scylla_local(), db::schema_tables::scylla_table_schema_history(),
                     v3::views_builds_in_progress(), v3::built_views(),
                     v3::scylla_views_builds_in_progress(),

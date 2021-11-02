@@ -46,6 +46,18 @@ large_data_handler::large_data_handler(uint64_t partition_threshold_bytes, uint6
         partition_threshold_bytes, row_threshold_bytes, cell_threshold_bytes, rows_count_threshold);
 }
 
+future<bool> large_data_handler::maybe_record_too_many_rows(const sstables::sstable& sst, const sstables::key& key, uint64_t rows_count) {
+    assert(running());
+    if (__builtin_expect(rows_count > _rows_count_threshold, false)) {
+        return with_sem([&sst, &key, rows_count, this] {
+            return record_too_many_rows(sst, key, rows_count);
+        }).then([] {
+            return true;
+        });
+    }
+    return make_ready_future<bool>(false);
+}
+
 future<bool> large_data_handler::maybe_record_large_partitions(const sstables::sstable& sst, const sstables::key& key, uint64_t partition_size) {
     assert(running());
     if (partition_size > _partition_threshold_bytes) {
@@ -90,6 +102,13 @@ future<> large_data_handler::maybe_delete_large_data_entries(sstables::shared_ss
             return delete_large_data_entries(*schema, std::move(filename), db::system_keyspace::LARGE_PARTITIONS);
         });
     }
+    future<> large_row_counts = make_ready_future<>();
+    entry = sst->get_large_data_stat(sstables::large_data_type::rows_in_partition);
+    if (entry && entry->above_threshold) {
+        large_row_counts = with_sem([schema, filename, this] () mutable {
+            return delete_large_data_entries(*schema, std::move(filename), db::system_keyspace::LARGE_ROW_COUNTS);
+        });
+    }
     future<> large_rows = make_ready_future<>();
     entry = sst->get_large_data_stat(sstables::large_data_type::row_size);
     if (entry && entry->above_threshold) {
@@ -108,7 +127,7 @@ future<> large_data_handler::maybe_delete_large_data_entries(sstables::shared_ss
 }
 
 template <typename... Args>
-static future<> try_record(std::string_view large_table, const sstables::sstable& sst,  const sstables::key& partition_key, int64_t size,
+static future<> try_record(std::string_view large_table, std::string_view column, const sstables::sstable& sst,  const sstables::key& partition_key, int64_t size,
         std::string_view desc, std::string_view extra_path, const std::vector<sstring> &extra_fields, Args&&... args) {
     // FIXME  This check is for test/cql-test-env that stop qctx (it does so because
     // it stops query processor and doesn't want us to access its freed instantes)
@@ -122,8 +141,8 @@ static future<> try_record(std::string_view large_table, const sstables::sstable
         extra_fields_str += format(", {}", field);
         extra_values += ", ?";
     }
-    const sstring req = format("INSERT INTO system.large_{}s (keyspace_name, table_name, sstable_name, {}_size, partition_key, compaction_time{}) VALUES (?, ?, ?, ?, ?, ?{}) USING TTL 2592000",
-            large_table, large_table, extra_fields_str, extra_values);
+    const sstring req = format("INSERT INTO system.large_{}s (keyspace_name, table_name, sstable_name, {}, partition_key, compaction_time{}) VALUES (?, ?, ?, ?, ?, ?{}) USING TTL 2592000",
+            large_table, column, extra_fields_str, extra_values);
     const schema &s = *sst.get_schema();
     auto ks_name = s.ks_name();
     auto cf_name = s.cf_name();
@@ -140,16 +159,11 @@ static future<> try_record(std::string_view large_table, const sstables::sstable
 }
 
 future<> cql_table_large_data_handler::record_large_partitions(const sstables::sstable& sst, const sstables::key& key, uint64_t partition_size) const {
-    return try_record("partition", sst, key, int64_t(partition_size), "partition", "", {});
+    return try_record("partition", "partition_size", sst, key, int64_t(partition_size), "partition", "", {});
 }
 
-void cql_table_large_data_handler::log_too_many_rows(const sstables::sstable& sst, const sstables::key& partition_key,
-        uint64_t rows_count) const {
-    const schema& s = *sst.get_schema();
-    const auto sstable_name = sst.get_filename();
-    large_data_logger.warn("Writing a partition with too many rows [{}/{}:{}] ({} rows) to {}",
-                           s.ks_name(), s.cf_name(), partition_key.to_partition_key(s).with_schema(s),
-                           rows_count, sstable_name);
+future<> cql_table_large_data_handler::record_too_many_rows(const sstables::sstable& sst, const sstables::key& key, uint64_t rows_count) const {
+    return try_record("row_count", "row_count", sst, key, int64_t(rows_count), "row count", "", {});
 }
 
 future<> cql_table_large_data_handler::record_large_cells(const sstables::sstable& sst, const sstables::key& partition_key,
@@ -160,9 +174,9 @@ future<> cql_table_large_data_handler::record_large_cells(const sstables::sstabl
     if (clustering_key) {
         const schema &s = *sst.get_schema();
         auto ck_str = key_to_str(*clustering_key, s);
-        return try_record("cell", sst, partition_key, int64_t(cell_size), cell_type, format("{} {}", ck_str, column_name), extra_fields, ck_str, column_name);
+        return try_record("cell", "cell_size", sst, partition_key, int64_t(cell_size), cell_type, format("{} {}", ck_str, column_name), extra_fields, ck_str, column_name);
     } else {
-        return try_record("cell", sst, partition_key, int64_t(cell_size), cell_type, column_name, extra_fields, data_value::make_null(utf8_type), column_name);
+        return try_record("cell", "cell_size", sst, partition_key, int64_t(cell_size), cell_type, column_name, extra_fields, data_value::make_null(utf8_type), column_name);
     }
 }
 
@@ -172,9 +186,9 @@ future<> cql_table_large_data_handler::record_large_rows(const sstables::sstable
     if (clustering_key) {
         const schema &s = *sst.get_schema();
         std::string ck_str = key_to_str(*clustering_key, s);
-        return try_record("row", sst, partition_key, int64_t(row_size), "row", ck_str, extra_fields,  ck_str);
+        return try_record("row", "row_size", sst, partition_key, int64_t(row_size), "row", ck_str, extra_fields,  ck_str);
     } else {
-        return try_record("row", sst, partition_key, int64_t(row_size), "static row", "", extra_fields, data_value::make_null(utf8_type));
+        return try_record("row", "row_size", sst, partition_key, int64_t(row_size), "static row", "", extra_fields, data_value::make_null(utf8_type));
     }
 }
 

@@ -1055,7 +1055,7 @@ void writer::maybe_record_too_many_rows(const sstables::sstable& sst, const ssta
     if (entry.max_value < rows_count) {
         entry.max_value = rows_count;
     }
-    if (_sst.get_large_data_handler().maybe_log_too_many_rows(sst, partition_key, rows_count)) {
+    if (_sst.get_large_data_handler().maybe_record_too_many_rows(sst, partition_key, rows_count).get0()) {
         entry.above_threshold++;
     }
 }
