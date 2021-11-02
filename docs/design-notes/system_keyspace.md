@@ -6,11 +6,12 @@ This section describes layouts and usage of system.* tables.
 
 Scylla performs better if partitions, rows, or cells are not too
 large. To help diagnose cases where these grow too large, scylla keeps
-3 tables that record large partitions, rows, and cells, respectively.
+4 tables that record large partitions, rows, cells, and row counts (in
+one partition), respectively.
 
 The meaning of an entry in each of these tables is similar. It means
-that there is a particular sstable with a large partition, row, or
-cell. In particular, this implies that:
+that there is a particular sstable with a large partition, row, cell
+or a partition with too many rows.  In particular, this implies that:
 
 * There is no entry until compaction aggregates enough data in a
   single sstable.
@@ -113,6 +114,36 @@ SELECT * FROM system.large_cells;
 #### Extracting large cells info for a single table
 ~~~
 SELECT * FROM system.large_cells WHERE keyspace_name = 'ks1' and table_name = 'standard1';
+~~~
+
+## system.large\_row_counts
+
+Large row counts table can be used to trace partitions with largest
+row count in a cluster.
+
+Schema:
+~~~
+CREATE TABLE system.large_row_counts (
+    keyspace_name text,
+    table_name text,
+    sstable_name text,
+    row_count bigint,
+    partition_key text,
+    compaction_time timestamp,
+    PRIMARY KEY ((keyspace_name, table_name), sstable_name, row_count, partition_key)
+) WITH CLUSTERING ORDER BY (sstable_name ASC, partition_size DESC, partition_key ASC);
+~~~
+
+### Example usage
+
+#### Extracting large row count info
+~~~
+SELECT * FROM system.large_row_counts;
+~~~
+
+#### Extracting large row count info for a single table
+~~~
+SELECT * FROM system.large_row_counts WHERE keyspace_name = 'ks1' and table_name = 'standard1';
 ~~~
 
 ## system.truncated
