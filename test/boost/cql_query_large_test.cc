@@ -70,10 +70,10 @@ SEASTAR_THREAD_TEST_CASE(test_large_collection) {
         }
 
         flush(e);
-        assert_that(e.execute_cql("select partition_key, column_name from system.large_cells where table_name = 'tbl' allow filtering;").get0())
+        assert_that(e.execute_cql("select partition_key, column_name from system.large_data where table_name = 'tbl' and metric = 'cell_size' allow filtering;").get0())
             .is_rows()
             .with_size(1)
-            .with_row({"42", "b", "tbl"});
+            .with_row({"42", "b", "tbl", "cell_size"});
 
         return make_ready_future<>();
     }, cfg).get();
@@ -90,14 +90,14 @@ SEASTAR_THREAD_TEST_CASE(test_large_data) {
         e.execute_cql("insert into tbl (a, b) values (44, '" + blob + "');").get();
         flush(e);
 
-        shared_ptr<cql_transport::messages::result_message> msg = e.execute_cql("select partition_key, row_size from system.large_rows where table_name = 'tbl' allow filtering;").get0();
+        shared_ptr<cql_transport::messages::result_message> msg = e.execute_cql("select partition_key, value from system.large_data where table_name = 'tbl' and metric = 'row_size' allow filtering;").get0();
         auto res = dynamic_pointer_cast<cql_transport::messages::result_message::rows>(msg);
         auto rows = res->rs().result_set().rows();
 
-        // Check the only the large row is added to system.large_rows.
+        // Check that only the large row is added to system.large_data.
         BOOST_REQUIRE_EQUAL(rows.size(), 1);
         auto row0 = rows[0];
-        BOOST_REQUIRE_EQUAL(row0.size(), 3);
+        BOOST_REQUIRE_EQUAL(row0.size(), 4);
         BOOST_REQUIRE_EQUAL(*row0[0], "44");
         BOOST_REQUIRE_EQUAL(*row0[2], "tbl");
 
@@ -109,15 +109,15 @@ SEASTAR_THREAD_TEST_CASE(test_large_data) {
         long row_size = read_be<long>(reinterpret_cast<const char*>(&row_size_bytes[0]));
         BOOST_REQUIRE(row_size > 1024*1024 && row_size < 1025*1024);
 
-        // Check that it was added to system.large_cells too
-        assert_that(e.execute_cql("select partition_key, column_name from system.large_cells where table_name = 'tbl' allow filtering;").get0())
+        // Check that it was added to system.large_data with 'cell_size' metric too
+        assert_that(e.execute_cql("select partition_key, column_name from system.large_data where table_name = 'tbl' and metric = 'cell_size' allow filtering;").get0())
             .is_rows()
             .with_size(1)
-            .with_row({"44", "b", "tbl"});
+            .with_row({"44", "b", "tbl", "cell_size"});
 
         e.execute_cql("delete from tbl where a = 44;").get();
 
-        // In order to guarantee that system.large_rows has been updated, we have to
+        // In order to guarantee that system.large_data has been updated, we have to
         // * flush, so that a tombstone for the above delete is created.
         // * do a major compaction, so that the tombstone is combined with the old entry,
         //   and the old sstable is deleted.
@@ -128,10 +128,7 @@ SEASTAR_THREAD_TEST_CASE(test_large_data) {
             });
         }).get();
 
-        assert_that(e.execute_cql("select partition_key from system.large_rows where table_name = 'tbl' allow filtering;").get0())
-            .is_rows()
-            .is_empty();
-        assert_that(e.execute_cql("select partition_key from system.large_cells where table_name = 'tbl' allow filtering;").get0())
+        assert_that(e.execute_cql("select partition_key from system.large_data where table_name = 'tbl' allow filtering;").get0())
             .is_rows()
             .is_empty();
 

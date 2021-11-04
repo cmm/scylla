@@ -108,6 +108,7 @@ class system_keyspace {
     static schema_ptr compactions_in_progress();
     static schema_ptr compaction_history();
     static schema_ptr sstable_activity();
+    static schema_ptr large_data();
     static schema_ptr large_partitions();
     static schema_ptr large_rows();
     static schema_ptr large_cells();
@@ -138,6 +139,7 @@ public:
     static constexpr auto COMPACTION_HISTORY = "compaction_history";
     static constexpr auto SSTABLE_ACTIVITY = "sstable_activity";
     static constexpr auto SIZE_ESTIMATES = "size_estimates";
+    static constexpr auto LARGE_DATA = "large_data";
     static constexpr auto LARGE_PARTITIONS = "large_partitions";
     static constexpr auto LARGE_ROWS = "large_rows";
     static constexpr auto LARGE_CELLS = "large_cells";

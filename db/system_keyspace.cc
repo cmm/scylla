@@ -624,6 +624,30 @@ schema_ptr system_keyspace::large_cells() {
     return large_cells;
 }
 
+schema_ptr system_keyspace::large_data() {
+    static thread_local auto large_data = [] {
+        auto id = generate_legacy_id(NAME, LARGE_DATA);
+        return schema_builder(NAME, LARGE_DATA, id)
+                .with_column("keyspace_name", utf8_type, column_kind::partition_key)
+                .with_column("table_name", utf8_type, column_kind::partition_key)
+                .with_column("sstable_name", utf8_type, column_kind::partition_key)
+                // We want the larger ratios first, so use reversed_type_impl
+                .with_column("ratio", reversed_type_impl::get_instance(float_type), column_kind::clustering_key)
+                .with_column("metric", utf8_type, column_kind::clustering_key)
+                .with_column("partition_key", utf8_type, column_kind::clustering_key)
+                .with_column("clustering_key", utf8_type, column_kind::clustering_key)
+                .with_column("column_name", utf8_type, column_kind::clustering_key)
+                .with_column("value", long_type)
+                .with_column("compaction_time", timestamp_type)
+                .set_comment("data size threshold violations")
+                .with_version(generate_schema_version(id))
+                .set_gc_grace_seconds(0)
+                .set_caching_options(caching_options::get_disabled_caching_options())
+                .build();
+    }();
+    return large_data;
+}
+
 /*static*/ schema_ptr system_keyspace::scylla_local() {
     static thread_local auto scylla_local = [] {
         schema_builder builder(make_shared_schema(generate_legacy_id(NAME, SCYLLA_LOCAL), NAME, SCYLLA_LOCAL,
@@ -1964,7 +1988,8 @@ std::vector<schema_ptr> system_keyspace::all_tables(const db::config& cfg) {
     r.insert(r.end(), { built_indexes(), hints(), batchlog(), paxos(), local(),
                     peers(), peer_events(), range_xfers(),
                     compactions_in_progress(), compaction_history(),
-                    sstable_activity(), clients(), size_estimates(), large_partitions(), large_rows(), large_cells(),
+                    sstable_activity(), clients(), size_estimates(),
+                    large_data(), large_partitions(), large_rows(), large_cells(),
                     scylla_local(), db::schema_tables::scylla_table_schema_history(),
                     v3::views_builds_in_progress(), v3::built_views(),
                     v3::scylla_views_builds_in_progress(),
