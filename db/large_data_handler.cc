@@ -47,6 +47,18 @@ large_data_handler::large_data_handler(uint64_t partition_threshold_bytes, uint6
         partition_threshold_bytes, row_threshold_bytes, cell_threshold_bytes, rows_count_threshold);
 }
 
+future<bool> large_data_handler::maybe_record_too_many_rows(const sstables::sstable& sst, const sstables::key& key, uint64_t rows_count) {
+    assert(running());
+    if (__builtin_expect(rows_count > _rows_count_threshold, false)) {
+        return with_sem([&sst, &key, rows_count, this] {
+            return record_too_many_rows(sst, key, rows_count);
+        }).then([] {
+            return true;
+        });
+    }
+    return make_ready_future<bool>(false);
+}
+
 future<bool> large_data_handler::maybe_record_large_partitions(const sstables::sstable& sst, const sstables::key& key, uint64_t partition_size) {
     assert(running());
     if (partition_size > _partition_threshold_bytes) {
@@ -131,13 +143,8 @@ future<> cql_table_large_data_handler::record_large_partitions(const sstables::s
     return try_record("partition_size", sst, key, int64_t(partition_size), get_partition_threshold_bytes(), "partition", "", {"clustering_key", "column_name"}, "", "");
 }
 
-void cql_table_large_data_handler::log_too_many_rows(const sstables::sstable& sst, const sstables::key& partition_key,
-        uint64_t rows_count) const {
-    const schema& s = *sst.get_schema();
-    const auto sstable_name = sst.get_filename();
-    large_data_logger.warn("Writing a partition with too many rows [{}/{}:{}] ({} rows) to {}",
-                           s.ks_name(), s.cf_name(), partition_key.to_partition_key(s).with_schema(s),
-                           rows_count, sstable_name);
+future<> cql_table_large_data_handler::record_too_many_rows(const sstables::sstable& sst, const sstables::key& key, uint64_t rows_count) const {
+    return try_record("row_count", sst, key, int64_t(rows_count), get_rows_count_threshold(), "row count", "", {"clustering_key", "column_name"}, "", "");
 }
 
 future<> cql_table_large_data_handler::record_large_cells(const sstables::sstable& sst, const sstables::key& partition_key,
