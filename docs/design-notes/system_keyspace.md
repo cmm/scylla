@@ -6,10 +6,12 @@ This section describes layouts and usage of system.* tables.
 
 Scylla performs better if partitions, rows, and individual cells are
 not too large. To help diagnose cases where these grow too large,
-scylla keeps a table that records large partitions, rows, and cells.
+scylla keeps a table that records large partitions, rows, cells, and
+partition row counts.
 
 Each entry means that there is a particular sstable with a large
-partition, row, or cell.  In particular, this implies that:
+partition, row, cell, or a partition with too many rows.  In
+particular, this implies that:
 
 * There is no entry until compaction aggregates enough data in a
   single sstable.
@@ -77,6 +79,10 @@ Records cells larger than `compaction_large_cell_warning_threshold_mb`.
 
 Note that a collection is just one cell. There is no information about
 the size of each collection element.
+
+#### row_count
+
+Records partitions with row count larger than `compaction_rows_count_warning_threshold`.
 
 ## system.truncated
 

@@ -78,13 +78,7 @@ public:
     void start();
     future<> stop();
 
-    bool maybe_log_too_many_rows(const sstables::sstable& sst, const sstables::key& partition_key, uint64_t rows_count) {
-        if (__builtin_expect(rows_count > _rows_count_threshold, false)) {
-            log_too_many_rows(sst, partition_key, rows_count);
-            return true;
-        }
-        return false;
-    }
+    future<bool> maybe_record_too_many_rows(const sstables::sstable& sst, const sstables::key& partition_key, uint64_t rows_count);
 
     future<bool> maybe_record_large_rows(const sstables::sstable& sst, const sstables::key& partition_key,
             const clustering_key_prefix* clustering_key, uint64_t row_size) {
@@ -132,7 +126,7 @@ public:
     }
 
 protected:
-    virtual void log_too_many_rows(const sstables::sstable& sst, const sstables::key& partition_key, uint64_t rows_count) const = 0;
+    virtual future<> record_too_many_rows(const sstables::sstable& sst, const sstables::key& partition_key, uint64_t rows_count) const = 0;
     virtual future<> record_large_cells(const sstables::sstable& sst, const sstables::key& partition_key,
             const clustering_key_prefix* clustering_key, const column_definition& cdef, uint64_t cell_size) const = 0;
     virtual future<> record_large_rows(const sstables::sstable& sst, const sstables::key& partition_key, const clustering_key_prefix* clustering_key, uint64_t row_size) const = 0;
@@ -146,7 +140,7 @@ public:
         : large_data_handler(partition_threshold_bytes, row_threshold_bytes, cell_threshold_bytes, rows_count_threshold) {}
 
 protected:
-    virtual void log_too_many_rows(const sstables::sstable& sst, const sstables::key& partition_key, uint64_t rows_count) const override;
+    virtual future<> record_too_many_rows(const sstables::sstable& sst, const sstables::key& partition_key, uint64_t rows_count) const override;
     virtual future<> record_large_partitions(const sstables::sstable& sst, const sstables::key& partition_key, uint64_t partition_size) const override;
     virtual future<> delete_large_data_entries(const schema& s, sstring sstable_name) const override;
     virtual future<> record_large_cells(const sstables::sstable& sst, const sstables::key& partition_key,
@@ -157,8 +151,8 @@ protected:
 class nop_large_data_handler : public large_data_handler {
 public:
     nop_large_data_handler();
-    virtual void log_too_many_rows(const sstables::sstable& sst, const sstables::key& partition_key, uint64_t rows_count) const override {
-        return;
+    virtual future<> record_too_many_rows(const sstables::sstable& sst, const sstables::key& partition_key, uint64_t rows_count) const override {
+        return make_ready_future<>();
     }
 
     virtual future<> record_large_partitions(const sstables::sstable& sst, const sstables::key& partition_key, uint64_t partition_size) const override {
