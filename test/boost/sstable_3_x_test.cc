@@ -3382,9 +3382,8 @@ static void write_mut_and_validate_version(test_env& env, schema_ptr s, const ss
     lw_shared_ptr<memtable> mt = make_lw_shared<memtable>(s);
     mt->apply(mut);
 
-    tmpdir tmp = write_and_compare_sstables(env, s, mt, table_name, version);
+    tmpdir tmp = write_sstables(env, s, mt, version);
     auto written_sst = validate_read(env, s, tmp.path(), {mut}, version);
-    do_validate_stats_metadata(s, written_sst, table_name);
     check_min_max_column_names(written_sst, std::move(min_components), std::move(max_components));
 }
 
