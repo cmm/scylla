@@ -332,10 +332,10 @@ flat_mutation_reader read_context::create_reader(
             rm.state = reader_state::used;
             // The saved reader permit is expected to be the same one passed to create_reader,
             // as returned from obtain_reader_permit()
-            if (reader_opt->permit() != permit) {
+            if (reader_opt.as_v1()->permit() != permit) {
                 on_internal_error(mmq_log, "read_context::create_reader(): passed-in permit is different than saved reader's permit");
             }
-            return std::move(*reader_opt);
+            return std::move(*reader_opt.as_v1());
         }
     }
 
@@ -489,11 +489,13 @@ future<> read_context::save_reader(shard_id shard, const dht::decorated_key& las
             &last_pkey, &last_ckey, gts = tracing::global_trace_state_ptr(_trace_state)] (database& db) mutable {
         try {
             auto rparts = rm.rparts.release(); // avoid another round-trip when destroying rparts
-            flat_mutation_reader_opt reader = rparts->permit.semaphore().unregister_inactive_read(std::move(*rparts->handle));
+            auto reader_opt = rparts->permit.semaphore().unregister_inactive_read(std::move(*rparts->handle));
 
-            if (!reader) {
+            if (!reader_opt) {
                 return make_ready_future<>();
             }
+
+            auto reader = std::move(reader_opt.as_v1());
 
             size_t fragments = 0;
             const auto size_before = reader->buffer_size();

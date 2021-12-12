@@ -233,7 +233,7 @@ SEASTAR_THREAD_TEST_CASE(test_reader_concurrency_semaphore_forward_progress) {
         }
         future<> tick(reader_concurrency_semaphore::inactive_read_handle& handle) {
             if (auto reader = _permit->semaphore().unregister_inactive_read(std::move(handle)); reader) {
-                _reader = std::move(*reader);
+                _reader = std::move(*reader.as_v1());
             } else {
                 co_await _permit->maybe_wait_readmission();
                 make_reader();

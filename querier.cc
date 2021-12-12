@@ -339,8 +339,8 @@ std::optional<Querier> querier_cache::lookup_querier(
     if (!reader_opt) {
         throw std::runtime_error("lookup_querier(): found querier that is evicted");
     }
-    reader_opt->set_timeout(timeout);
-    querier_utils::set_reader(q, std::move(*reader_opt));
+    reader_opt.as_v1()->set_timeout(timeout);
+    querier_utils::set_reader(q, std::move(*reader_opt.as_v1()));
     --stats.population;
 
     const auto can_be_used = can_be_used_for_page(q, s, ranges.front(), slice);

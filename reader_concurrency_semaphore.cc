@@ -690,6 +690,36 @@ reader_concurrency_semaphore::inactive_read_handle reader_concurrency_semaphore:
     return inactive_read_handle();
 }
 
+reader_concurrency_semaphore::inactive_read_handle reader_concurrency_semaphore::register_inactive_read(flat_mutation_reader_v2 reader) noexcept {
+    auto& permit_impl = *reader.permit()._impl;
+    permit_impl.on_register_as_inactive();
+    // Implies _inactive_reads_v2.empty(), we don't queue new readers before
+    // evicting all inactive reads.
+    // Checking the _wait_list covers the count resources only, so check memory
+    // separately.
+    if (_wait_list.empty() && _resources.memory > 0) {
+      try {
+        auto irp = std::make_unique<inactive_read>(std::move(reader));
+        auto& ir = *irp;
+        _inactive_reads.push_back(ir);
+        ++_stats.inactive_reads;
+        return inactive_read_handle(*this, *irp.release());
+      } catch (...) {
+        // It is okay to swallow the exception since
+        // we're allowed to drop the reader upon registration
+        // due to lack of resources. Returning an empty
+        // i_r_h here rather than throwing simplifies the caller's
+        // error handling.
+        rcslog.warn("Registering inactive read failed: {}. Ignored as if it was evicted.", std::current_exception());
+      }
+    } else {
+        permit_impl.on_evicted();
+        ++_stats.permit_based_evictions;
+    }
+    close_reader(std::move(reader));
+    return inactive_read_handle();
+}
+
 void reader_concurrency_semaphore::set_notify_handler(inactive_read_handle& irh, eviction_notify_handler&& notify_handler, std::optional<std::chrono::seconds> ttl_opt) {
     auto& ir = *irh._irp;
     ir.notify_handler = std::move(notify_handler);
@@ -701,7 +731,7 @@ void reader_concurrency_semaphore::set_notify_handler(inactive_read_handle& irh,
     }
 }
 
-flat_mutation_reader_opt reader_concurrency_semaphore::unregister_inactive_read(inactive_read_handle irh) {
+reader_concurrency_semaphore::any_flat_mutation_reader_opt reader_concurrency_semaphore::unregister_inactive_read(inactive_read_handle irh) {
     if (!irh) {
         return {};
     }
@@ -724,8 +754,10 @@ flat_mutation_reader_opt reader_concurrency_semaphore::unregister_inactive_read(
 
     --_stats.inactive_reads;
     std::unique_ptr<inactive_read> irp(irh._irp);
-    irp->reader.permit()._impl->on_unregister_as_inactive();
-    return std::move(irp->reader);
+    std::visit([] (auto&& reader) { reader.permit()._impl->on_unregister_as_inactive(); }, irp->reader);
+    return irp->reader.index() == 0 ?
+        reader_concurrency_semaphore::any_flat_mutation_reader_opt(std::move(std::get<0>(irp->reader))) :
+        reader_concurrency_semaphore::any_flat_mutation_reader_opt(std::move(std::get<1>(irp->reader)));
 }
 
 bool reader_concurrency_semaphore::try_evict_one_inactive_read(evict_reason reason) {
@@ -767,10 +799,10 @@ future<> reader_concurrency_semaphore::stop() noexcept {
     co_return;
 }
 
-flat_mutation_reader reader_concurrency_semaphore::detach_inactive_reader(inactive_read& ir, evict_reason reason) noexcept {
+reader_concurrency_semaphore::any_flat_mutation_reader reader_concurrency_semaphore::detach_inactive_reader(inactive_read& ir, evict_reason reason) noexcept {
     auto reader = std::move(ir.reader);
     ir.detach();
-    reader.permit()._impl->on_evicted();
+    std::visit([] (auto&& reader) { reader.permit()._impl->on_evicted(); }, reader);
     std::unique_ptr<inactive_read> irp(&ir);
     try {
         if (ir.notify_handler) {
@@ -797,11 +829,11 @@ void reader_concurrency_semaphore::evict(inactive_read& ir, evict_reason reason)
     close_reader(detach_inactive_reader(ir, reason));
 }
 
-void reader_concurrency_semaphore::close_reader(flat_mutation_reader reader) {
+void reader_concurrency_semaphore::close_reader(any_flat_mutation_reader reader) {
     // It is safe to discard the future since it is waited on indirectly
     // by closing the _close_readers_gate in stop().
     (void)with_gate(_close_readers_gate, [reader = std::move(reader)] () mutable {
-        return reader.close();
+        return std::visit([] (auto&& reader) { return reader.close(); }, reader);
     });
 }
 
@@ -842,10 +874,10 @@ void reader_concurrency_semaphore::evict_readers_in_background() {
     // This is safe since stop() closes _gate;
     (void)with_gate(_close_readers_gate, [this] {
         return do_until([this] { return _wait_list.empty() || _inactive_reads.empty(); }, [this] {
-            return detach_inactive_reader(_inactive_reads.front(), evict_reason::permit).close();
+            return std::visit([] (auto&& reader) { return reader.close(); }, detach_inactive_reader(_inactive_reads.front(), evict_reason::permit));
         });
     });
- }
+}
 
 future<> reader_concurrency_semaphore::do_wait_admission(reader_permit permit, read_func func) {
     if (!_execution_loop_future) {

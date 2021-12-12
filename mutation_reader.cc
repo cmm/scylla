@@ -1030,7 +1030,7 @@ void evictable_reader::maybe_pause(flat_mutation_reader reader) {
 }
 
 flat_mutation_reader_opt evictable_reader::try_resume() {
-    return _permit.semaphore().unregister_inactive_read(std::move(_irh));
+    return std::move(_permit.semaphore().unregister_inactive_read(std::move(_irh)).as_v1());
 }
 
 void evictable_reader::update_next_position(flat_mutation_reader& reader) {
