@@ -45,7 +45,7 @@
 logging::logger fmr_logger("flat_mutation_reader");
 
 flat_mutation_reader& flat_mutation_reader::operator=(flat_mutation_reader&& o) noexcept {
-    if (_impl) {
+    if (_impl && !get_original()) {
         impl* ip = _impl.get();
         // Abort to enforce calling close() before readers are closed
         // to prevent leaks and potential use-after-free due to background
@@ -58,7 +58,7 @@ flat_mutation_reader& flat_mutation_reader::operator=(flat_mutation_reader&& o) 
 }
 
 flat_mutation_reader::~flat_mutation_reader() {
-    if (_impl) {
+    if (_impl && !get_original()) {
         impl* ip = _impl.get();
         // Abort to enforce calling close() before readers are closed
         // to prevent leaks and potential use-after-free due to background
@@ -1586,7 +1586,7 @@ void mutation_fragment_stream_validating_filter::on_end_of_stream() {
 }
 
 flat_mutation_reader_v2& flat_mutation_reader_v2::operator=(flat_mutation_reader_v2&& o) noexcept {
-    if (_impl) {
+    if (_impl && !get_original()) {
         impl* ip = _impl.get();
         // Abort to enforce calling close() before readers are closed
         // to prevent leaks and potential use-after-free due to background
@@ -1599,7 +1599,7 @@ flat_mutation_reader_v2& flat_mutation_reader_v2::operator=(flat_mutation_reader
 }
 
 flat_mutation_reader_v2::~flat_mutation_reader_v2() {
-    if (_impl) {
+    if (_impl && !get_original()) {
         impl* ip = _impl.get();
         // Abort to enforce calling close() before readers are closed
         // to prevent leaks and potential use-after-free due to background
@@ -1706,6 +1706,9 @@ flat_mutation_reader downgrade_to_v1(flat_mutation_reader_v2 r) {
                 : impl(r.schema(), r.permit())
                 , _reader(std::move(r))
         {}
+        virtual flat_mutation_reader_v2* get_original() override {
+            return &_reader;
+        }
         virtual future<> fill_buffer() override {
             if (_end_of_stream) {
                 return make_ready_future<>();
@@ -1756,7 +1759,12 @@ flat_mutation_reader downgrade_to_v1(flat_mutation_reader_v2 r) {
             return _reader.close();
         }
     };
-    return make_flat_mutation_reader<transforming_reader>(std::move(r));
+
+    if (auto original = r.get_original()) {
+        return std::move(*original);
+    } else {
+        return make_flat_mutation_reader<transforming_reader>(std::move(r));
+    }
 }
 
 flat_mutation_reader_v2 upgrade_to_v2(flat_mutation_reader r) {
@@ -1815,6 +1823,9 @@ flat_mutation_reader_v2 upgrade_to_v2(flat_mutation_reader r) {
                 , _reader(std::move(r))
                 , _rt_gen(*_schema)
         {}
+        virtual flat_mutation_reader* get_original() override {
+            return &_reader;
+        }
         virtual future<> fill_buffer() override {
             if (_end_of_stream) {
                 return make_ready_future<>();
@@ -1866,5 +1877,10 @@ flat_mutation_reader_v2 upgrade_to_v2(flat_mutation_reader r) {
             return _reader.close();
         }
     };
-    return make_flat_mutation_reader_v2<transforming_reader>(std::move(r));
+
+    if (auto original = r.get_original()) {
+        return std::move(*original);
+    } else {
+        return make_flat_mutation_reader_v2<transforming_reader>(std::move(r));
+    }
 }
