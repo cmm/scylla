@@ -331,6 +331,17 @@ modes = {
         'default': True,
         'description': 'a mode with no optimizations and no debug checks, optimized for fast build times, used for development',
     },
+    'devg': {
+        'cxxflags': '-DDEVEL -DSEASTAR_ENABLE_ALLOC_FAILURE_INJECTION -DSCYLLA_ENABLE_ERROR_INJECTION',
+        'cxx_ld_flags': '',
+        'stack-usage-threshold': 1024*21,
+        'optimization-level': '0',
+        'per_src_extra_cxxflags': {},
+        'cmake_build_type': 'Dev',
+        'can_have_debug_info': True,
+        'default': False,
+        'description': 'like dev, but with debug info',
+    },
     'sanitize': {
         'cxxflags': '-DDEBUG -DSANITIZE -DDEBUG_LSA_SANITIZER -DSCYLLA_ENABLE_ERROR_INJECTION',
         'cxx_ld_flags': '',
