@@ -763,6 +763,15 @@ private:
         fmt::print(" {}", disk_string_to_string(val));
     }
 
+    template <typename Contents>
+    void visit(const std::optional<Contents>& val) {
+        if (bool(val)) {
+            visit(*val);
+        } else {
+            fmt::print(" {}", "{}");
+        }
+    }
+
     template <typename Integer, typename T>
     void visit(const sstables::disk_array<Integer, T>& val) {
         fmt::print("\n");
@@ -815,6 +824,10 @@ private:
         fmt::print(" {{end: ");
         visit(val.end);
         fmt::print("}}");
+    }
+
+    void visit(const utils::UUID& uuid) {
+        fmt::print(" {}", uuid.to_sstring());
     }
 
     template <typename Integer>
