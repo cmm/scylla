@@ -340,6 +340,17 @@ parse(const schema&, sstable_version_types, random_access_reader& in, Size& len,
     }
 }
 
+template <typename Contents>
+future<> parse(const schema& s, sstable_version_types v, random_access_reader& in, std::optional<Contents>& opt) {
+    bool engaged;
+    co_await parse(s, v, in, engaged);
+    if (engaged) {
+        Contents contents;
+        co_await parse(s, v, in, contents);
+        opt.emplace(std::move(contents));
+    }
+}
+
 // We resize the array here, before we pass it to the integer / non-integer
 // specializations
 template <typename Size, typename Members>
