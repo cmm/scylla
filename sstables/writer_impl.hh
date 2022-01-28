@@ -33,7 +33,7 @@ struct sstable_writer::writer_impl {
         , _schema(schema)
         , _pc(pc)
         , _cfg(cfg)
-        , _collector(_schema, sst.get_filename())
+        , _collector(_schema, sst.get_filename(), sst.manager())
         , _validator(format("sstable writer {}", _sst.get_filename()), _schema, _cfg.validation_level)
     {}
 

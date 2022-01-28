@@ -9,6 +9,7 @@
 #include "log.hh"
 #include "metadata_collector.hh"
 #include "range_tombstone.hh"
+#include "sstables_manager.hh"
 
 logging::logger mdclogger("metadata_collector");
 
@@ -87,6 +88,7 @@ void metadata_collector::construct_stats(stats_metadata& m) {
     m.has_legacy_counter_shards = _has_legacy_counter_shards;
     m.columns_count = _columns_count;
     m.rows_count = _rows_count;
+    m.originating_host_id = _manager.get_local_host_id();
 }
 
 } // namespace sstables
