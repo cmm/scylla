@@ -9,6 +9,7 @@
 #include "log.hh"
 #include "metadata_collector.hh"
 #include "range_tombstone.hh"
+#include "sstables_manager.hh"
 
 logging::logger mdclogger("metadata_collector");
 
@@ -66,6 +67,28 @@ void metadata_collector::update_min_max_components(const range_tombstone& rt) {
         mdclogger.trace("{}: updating max_clustering_key to rt.end={}", _name, clustering_key_prefix::with_schema_wrapper(_schema, rt.end));
         _max_clustering_key.emplace(rt.end);
     }
+}
+
+void metadata_collector::construct_stats(stats_metadata& m) {
+    m.estimated_partition_size = std::move(_estimated_partition_size);
+    m.estimated_cells_count = std::move(_estimated_cells_count);
+    m.position = _replay_position;
+    m.min_timestamp = _timestamp_tracker.min();
+    m.max_timestamp = _timestamp_tracker.max();
+    m.min_local_deletion_time = _local_deletion_time_tracker.min();
+    m.max_local_deletion_time = _local_deletion_time_tracker.max();
+    m.min_ttl = _ttl_tracker.min();
+    m.max_ttl = _ttl_tracker.max();
+    m.compression_ratio = _compression_ratio;
+    m.estimated_tombstone_drop_time = std::move(_estimated_tombstone_drop_time);
+    m.sstable_level = _sstable_level;
+    m.repaired_at = _repaired_at;
+    convert(m.min_column_names, _min_clustering_key);
+    convert(m.max_column_names, _max_clustering_key);
+    m.has_legacy_counter_shards = _has_legacy_counter_shards;
+    m.columns_count = _columns_count;
+    m.rows_count = _rows_count;
+    m.originating_host_id = _manager.get_local_host_id();
 }
 
 } // namespace sstables

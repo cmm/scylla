@@ -2627,10 +2627,19 @@ future<utils::UUID> system_keyspace::load_local_host_id() {
 }
 
 future<utils::UUID> system_keyspace::set_local_host_id(utils::UUID host_id) {
+    // Order of operations is important here: we need to cache the
+    // host id _before_ flushing system.local to prevent a cycle (the
+    // alternative would be checking "is this system.local" when
+    // setting host id in sstable metadata).
+    //
+    // This does technically mean that we declare success before
+    // actually succeeding -- but any failure during bootstrap should
+    // be unrecoverable, so this little infidelity shouldn't matter.
+    co_await smp::invoke_on_all([host_id] { _local_cache.local()._cached_local_host_id = host_id; });
+
     sstring req = format("INSERT INTO system.{} (key, host_id) VALUES (?, ?)", LOCAL);
     co_await qctx->execute_cql(req, sstring(LOCAL), host_id);
     co_await force_blocking_flush(LOCAL);
-    co_await smp::invoke_on_all([host_id] { _local_cache.local()._cached_local_host_id = host_id; });
     co_return host_id;
 }
 
