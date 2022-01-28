@@ -35,7 +35,7 @@ class test_env {
 public:
     explicit test_env()
         : _cache_tracker(std::make_unique<cache_tracker>())
-        , _mgr(std::make_unique<test_env_sstables_manager>(nop_lp_handler, test_db_config, test_feature_service, *_cache_tracker))
+        , _mgr(std::make_unique<test_env_sstables_manager>(nop_lp_handler, test_db_config, test_feature_service, *_cache_tracker, sstables_manager::random_host_id_getter))
         , _semaphore(std::make_unique<reader_concurrency_semaphore>(reader_concurrency_semaphore::no_limits{}, "sstables::test_env")) { }
 
     future<> stop() {

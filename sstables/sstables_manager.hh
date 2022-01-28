@@ -44,6 +44,9 @@ class sstables_manager {
     using list_type = boost::intrusive::list<sstable,
             boost::intrusive::member_hook<sstable, sstable::manager_link_type, &sstable::_manager_link>,
             boost::intrusive::constant_time_size<false>>;
+public:
+    using host_id_getter = std::function<utils::UUID()>;
+    static const host_id_getter random_host_id_getter;
 private:
     db::large_data_handler& _large_data_handler;
     const db::config& _db_config;
@@ -56,6 +59,8 @@ private:
     // in the system table).
     sstable_version_types _format = sstable_version_types::mc;
 
+    std::function<utils::UUID()> _host_id_getter;
+
     // _active and _undergoing_close are used in scylla-gdb.py to fetch all sstables
     // on current shard using "scylla sstables" command. If those fields are renamed,
     // update scylla-gdb.py as well.
@@ -66,7 +71,7 @@ private:
     promise<> _done;
     cache_tracker& _cache_tracker;
 public:
-    explicit sstables_manager(db::large_data_handler& large_data_handler, const db::config& dbcfg, gms::feature_service& feat, cache_tracker&);
+    explicit sstables_manager(db::large_data_handler& large_data_handler, const db::config& dbcfg, gms::feature_service& feat, cache_tracker&, const std::function<utils::UUID()>& host_id_getter);
     virtual ~sstables_manager();
 
     // Constructs a shared sstable
@@ -85,6 +90,8 @@ public:
 
     void set_format(sstable_version_types format) noexcept { _format = format; }
     sstables::sstable::version_types get_highest_supported_format() const noexcept { return _format; }
+
+    utils::UUID get_local_host_id() const { return _host_id_getter(); }
 
     // Wait until all sstables managed by this sstables_manager instance
     // (previously created by make_sstable()) have been disposed of:

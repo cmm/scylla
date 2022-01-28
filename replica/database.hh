@@ -1199,6 +1199,7 @@ struct database_config {
     seastar::scheduling_group gossip_scheduling_group;
     size_t available_memory;
     std::optional<sstables::sstable_version_types> sstables_format;
+    std::function<utils::UUID()> host_id_getter;
 };
 
 struct string_pair_eq {

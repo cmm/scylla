@@ -18,9 +18,11 @@ namespace sstables {
 
 logging::logger smlogger("sstables_manager");
 
+const sstables_manager::host_id_getter sstables_manager::random_host_id_getter = [host_id = utils::make_random_uuid()] { return host_id; };
+
 sstables_manager::sstables_manager(
-    db::large_data_handler& large_data_handler, const db::config& dbcfg, gms::feature_service& feat, cache_tracker& ct)
-    : _large_data_handler(large_data_handler), _db_config(dbcfg), _features(feat), _cache_tracker(ct) {
+    db::large_data_handler& large_data_handler, const db::config& dbcfg, gms::feature_service& feat, cache_tracker& ct, const std::function<utils::UUID()>& host_id_getter)
+    : _large_data_handler(large_data_handler), _db_config(dbcfg), _features(feat), _host_id_getter(host_id_getter), _cache_tracker(ct) {
 }
 
 sstables_manager::~sstables_manager() {
