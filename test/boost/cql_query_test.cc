@@ -4698,7 +4698,6 @@ SEASTAR_THREAD_TEST_CASE(test_query_limit) {
 // when clustering-key filtering is enabled in filter_sstable_for_reader
 static future<> test_clustering_filtering_with_compaction_strategy(const std::string_view& cs) {
     auto db_config = make_shared<db::config>();
-    db_config->enable_sstables_md_format.set(true);
 
     return do_with_cql_env_thread([&cs] (cql_test_env& e) {
         cquery_nofail(e, format("CREATE TABLE cf(pk text, ck int, v text, PRIMARY KEY(pk, ck)) WITH COMPACTION = {{'class': '{}'}}", cs));
@@ -4722,7 +4721,6 @@ SEASTAR_TEST_CASE(test_clustering_filtering) {
 
 static future<> test_clustering_filtering_2_with_compaction_strategy(const std::string_view& cs) {
     auto db_config = make_shared<db::config>();
-    db_config->enable_sstables_md_format.set(true);
 
     return do_with_cql_env_thread([&cs] (cql_test_env& e) {
         cquery_nofail(e, format("CREATE TABLE cf(pk text, ck int, v text, PRIMARY KEY(pk, ck)) WITH COMPACTION = {{'class': '{}'}}", cs));
@@ -4747,7 +4745,6 @@ SEASTAR_TEST_CASE(test_clustering_filtering_2) {
 
 static future<> test_clustering_filtering_3_with_compaction_strategy(const std::string_view& cs) {
     auto db_config = make_shared<db::config>();
-    db_config->enable_sstables_md_format.set(true);
 
     return do_with_cql_env_thread([&cs] (cql_test_env& e) {
         cquery_nofail(e, format("CREATE TABLE cf(pk text, ck int, v text, PRIMARY KEY(pk, ck)) WITH COMPACTION = {{'class': '{}'}}", cs));
