@@ -228,26 +228,7 @@ public:
         m.cardinality.elements = utils::chunked_vector<uint8_t>(cardinality.get(), cardinality.get() + cardinality.size());
     }
 
-    void construct_stats(stats_metadata& m) {
-        m.estimated_partition_size = std::move(_estimated_partition_size);
-        m.estimated_cells_count = std::move(_estimated_cells_count);
-        m.position = _replay_position;
-        m.min_timestamp = _timestamp_tracker.min();
-        m.max_timestamp = _timestamp_tracker.max();
-        m.min_local_deletion_time = _local_deletion_time_tracker.min();
-        m.max_local_deletion_time = _local_deletion_time_tracker.max();
-        m.min_ttl = _ttl_tracker.min();
-        m.max_ttl = _ttl_tracker.max();
-        m.compression_ratio = _compression_ratio;
-        m.estimated_tombstone_drop_time = std::move(_estimated_tombstone_drop_time);
-        m.sstable_level = _sstable_level;
-        m.repaired_at = _repaired_at;
-        convert(m.min_column_names, _min_clustering_key);
-        convert(m.max_column_names, _max_clustering_key);
-        m.has_legacy_counter_shards = _has_legacy_counter_shards;
-        m.columns_count = _columns_count;
-        m.rows_count = _rows_count;
-    }
+    void construct_stats(stats_metadata& m);
 };
 
 }
