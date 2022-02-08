@@ -1793,6 +1793,36 @@ const bool sstable::has_component(component_type f) const {
     return _recognized_components.contains(f);
 }
 
+bool sstable::validate_originating_host_id() const {
+    if (_version < version_types::me) {
+        // earlier formats do not store originating host id
+        return true;
+    }
+
+    auto stats = dynamic_cast<const stats_metadata*>(_components->statistics.contents[metadata_type::Stats].get());
+    if (!stats->originating_host_id) {
+        // Scylla always fills in originating host id when writing
+        // sstables, so an ME-and-up sstable that does not have it is
+        // invalid
+        sstlog.error("no originating host id in SSTable: {}", get_filename());
+        return false;
+    }
+
+    auto local_host_id = _manager.get_local_host_id();
+    if (!local_host_id) {
+        // we don't know the local host id before it is loaded from
+        // (or generated and written to) system.local, but some system
+        // sstable reads must happen before the bootstrap process gets
+        // there, so, welp
+        sstlog.trace("unknown local host id while validating SSTable: {}", get_filename());
+        // but at least check that the keyspace looks reasonable for
+        // the supposed bootstrap situation
+        return _schema->ks_name() == "system" || _schema->ks_name() == "system_schema";
+    }
+
+    return *stats->originating_host_id == *local_host_id;
+}
+
 future<> sstable::touch_temp_dir() {
     if (_temp_dir) {
         return make_ready_future<>();
