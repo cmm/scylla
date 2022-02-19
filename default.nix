@@ -220,6 +220,9 @@ in derive ({
     xxHash
     zlib
     zstdStatic
+
+    # wasmtime library & headers
+    (import ./dist/nix/wasmtime { inherit pkgs llvm clang; })
   ];
 
   JAVA8_HOME = "${openjdk8_headless}/lib/openjdk";
