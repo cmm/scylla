@@ -28,6 +28,8 @@
 #include <seastar/util/backtrace.hh>
 #include <seastar/util/later.hh>
 
+#include <fmt/core.h>
+
 #include "utils/logalloc.hh"
 #include "log.hh"
 #include "utils/dynamic_bitset.hh"
@@ -918,6 +920,9 @@ public:
         return this->_memory_released = memory_released;
     }
 
+    const char* name() const { return _name; }
+    const reclaim_timer* parent() const { return _parent; }
+
 private:
     template <typename T>
     void log_if_changed(log_level level, const char* name, T before, T now) const noexcept {
@@ -1217,6 +1222,26 @@ reclaim_timer::reclaim_timer(const char* name, is_preemptible preemptible, size_
     _old_pool_stats = shard_segment_pool.statistics();
 }
 
+}; // namespace logalloc
+
+template <> struct fmt::formatter<logalloc::reclaim_timer> {
+    constexpr auto parse(format_parse_context& ctx) {
+        return ctx.end();
+    }
+
+    template <typename FormatContext>
+    auto format(const logalloc::reclaim_timer& rt, FormatContext& ctx) {
+        auto p = rt.parent();
+        auto it = ctx.out();
+        if (p) {
+            it = format_to(it, "{}>", *p);
+        }
+        return format_to(it, "{}", rt.name());
+    }
+};
+
+namespace logalloc {
+
 void reclaim_timer::report() const noexcept {
     auto time_level = _stall_detected ? log_level::warn : log_level::debug;
     auto info_level = _stall_detected ? log_level::info : log_level::debug;
@@ -1224,7 +1249,7 @@ void reclaim_timer::report() const noexcept {
     auto msg_extra = _stall_detected ? fmt::format(", at {}", current_backtrace()) : "";
 
     timing_logger.log(time_level, "{} took {} us, trying to release {:.3f} MiB {}preemptibly{}",
-                        _name, (_duration + 500ns) / 1us, (float)_memory_to_release / MiB, _preemptible ? "" : "non-",
+                        *this, (_duration + 500ns) / 1us, (float)_memory_to_release / MiB, _preemptible ? "" : "non-",
                         msg_extra);
     log_if_any(info_level, "segments to release", _segments_to_release);
     if (_memory_released > 0) {
