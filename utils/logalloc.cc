@@ -882,7 +882,11 @@ public:
 class reclaim_timer {
     using clock = utils::coarse_steady_clock;
 
+    static thread_local reclaim_timer* _active_timer;
+
+    reclaim_timer* _parent;
     const char* _name;
+
     const is_preemptible _preemptible;
     const size_t _memory_to_release;
     const size_t _segments_to_release;
@@ -907,6 +911,7 @@ public:
         if (_debug_enabled || _stall_detected) {
             report();
         }
+        _active_timer = _parent;
     }
 
     size_t set_memory_released(size_t memory_released) noexcept {
@@ -1194,14 +1199,17 @@ segment::occupancy() {
     return { shard_segment_pool.descriptor(this).free_space(), segment::size };
 }
 
+thread_local reclaim_timer* reclaim_timer::_active_timer;
 reclaim_timer::reclaim_timer(const char* name, is_preemptible preemptible, size_t memory_to_release, size_t segments_to_release, tracker::impl* tracker)
-    : _name(name)
+    : _parent(_active_timer)
+    , _name(name)
     , _preemptible(preemptible)
     , _memory_to_release(memory_to_release)
     , _segments_to_release(segments_to_release)
     , _tracker(tracker)
     , _debug_enabled(timing_logger.is_enabled(logging::log_level::debug))
 {
+    _active_timer = this;
     _start = clock::now();
     if (_debug_enabled && tracker) {
         _old_region_occupancy = tracker->region_occupancy();
