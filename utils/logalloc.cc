@@ -956,6 +956,8 @@ class reclaim_timer {
 
     clock::time_point _start;
     stats _start_stats, _end_stats, _stat_diff;
+    clock::duration _duration_logged_below = clock::duration::zero();
+    stats _stat_diff_logged_below{};
 
     clock::duration _duration;
 
@@ -1270,11 +1272,23 @@ reclaim_timer::reclaim_timer(const char* name, is_preemptible preemptible, size_
 
 reclaim_timer::~reclaim_timer() {
     _duration = clock::now() - _start;
+    _duration -= _duration_logged_below;
     _stall_detected = _duration >= engine().get_blocked_reactor_notify_ms();
     if (_debug_enabled || _stall_detected) {
         sample_stats(_end_stats);
         _stat_diff = _end_stats - _start_stats;
+        _stat_diff -= _stat_diff_logged_below;
+
         report();
+
+        if (_parent) {
+            _parent->_stat_diff_logged_below += _stat_diff;
+            _parent->_duration_logged_below += _duration;
+        }
+    }
+    if (_parent) {
+        _parent->_duration_logged_below += _duration_logged_below;
+        _parent->_stat_diff_logged_below += _stat_diff_logged_below;
     }
     _active_timer = _parent;
 }
@@ -1312,8 +1326,8 @@ void reclaim_timer::report() const noexcept {
     auto MiB = 1024*1024;
     auto msg_extra = _stall_detected ? fmt::format(", at {}", current_backtrace()) : "";
 
-    timing_logger.log(time_level, "{} took {} us, trying to release {:.3f} MiB {}preemptibly{}",
-                        *this, (_duration + 500ns) / 1us, (float)_memory_to_release / MiB, _preemptible ? "" : "non-",
+    timing_logger.log(time_level, "{}{} took {} us, trying to release {:.3f} MiB {}preemptibly{}",
+                        *this, _duration_logged_below != clock::duration::zero() ? " (rest)" : "", (_duration + 500ns) / 1us, (float)_memory_to_release / MiB, _preemptible ? "" : "non-",
                         msg_extra);
     log_if_any(info_level, "segments to release", _segments_to_release);
     if (_memory_released > 0) {
