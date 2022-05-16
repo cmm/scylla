@@ -154,6 +154,7 @@ in derive ({
     ant
     antlr3
     boost
+    cargo
     cmake
     gcc
     # openjdk8_headless
@@ -181,6 +182,8 @@ in derive ({
     ]))
     ragel
     stow
+
+    (import ./dist/nix/cxxbridge { inherit pkgs; })
   ] ++ (devInputs { inherit pkgs llvm withPatches; });
 
   buildInputs = [
