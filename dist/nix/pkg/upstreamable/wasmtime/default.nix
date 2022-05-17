@@ -9,6 +9,9 @@ let
     rustPlatform
   ;
 
+  llvm = pkgs.llvmPackages_latest;
+  clang = llvm.clang;
+
   pname = "wasmtime";
   version = "0.29.0";
 
@@ -38,5 +41,7 @@ in rustPlatform.buildRustPackage {
     install -m644 $src/crates/c-api/wasm-c-api/include/* $out/include
   '';
 
+  # Scylla has to use this version (later ones change APIs), and it
+  # happens not to pass its own tests, so:
   doCheck = false;
 }

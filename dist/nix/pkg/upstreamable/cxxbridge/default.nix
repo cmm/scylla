@@ -25,6 +25,4 @@ in rustPlatform.buildRustPackage {
   postPatch = "cp ${lockFile} Cargo.lock";
 
   cargoBuildFlags = [ "--package cxxbridge-cmd" ];
-
-  doCheck = false;
 }

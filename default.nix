@@ -6,7 +6,8 @@
 #
 
 #
-# * At present this is not very useful for nix build, just for nix develop
+# * At present this is not very useful for "nix build", just for
+#   "nix develop"
 #
 # * IMPORTANT: to avoid using up ungodly amounts of disk space under
 #   /nix/store/ when you are not using flakes, make sure to move the
@@ -29,19 +30,8 @@
 } @ args:
 
 let
-  pkgs = import nixpkgs {
-    system = if system != null then system else builtins.currentSystem;
-  };
-
-  inherit (import (builtins.fetchTarball {
-    url = "https://github.com/hercules-ci/gitignore/archive/5b9e0ff9d3b551234b4f3eb3983744fa354b17f1.tar.gz";
-    sha256 = "01l4phiqgw9xgaxr6jr456qmww6kzghqrnbc7aiiww3h6db5vw53";
-  }) { inherit (pkgs) lib; })
-    gitignoreSource;
-
   inherit (builtins)
     baseNameOf
-    concatStringsSep
     fetchurl
     head
     map
@@ -51,6 +41,30 @@ let
     typeOf
   ;
 
+  pkgs = import nixpkgs {
+    system = if system != null then system else builtins.currentSystem;
+    overlays = [
+      (final: _: {
+        cxxbridge = final.callPackage ./dist/nix/pkg/upstreamable/cxxbridge { };
+        wasmtime = final.callPackage ./dist/nix/pkg/upstreamable/wasmtime { };
+
+        # build zstd statically, since the default dynamic-built zstd
+        # lacks some things Scylla needs
+        zstdStatic = final.callPackage "${nixpkgs}/pkgs/tools/compression/zstd" {
+          static = true;
+          buildContrib = false;
+          doCheck = false;
+        };
+      })
+    ];
+  };
+
+  inherit (import (builtins.fetchTarball {
+    url = "https://github.com/hercules-ci/gitignore/archive/5b9e0ff9d3b551234b4f3eb3983744fa354b17f1.tar.gz";
+    sha256 = "01l4phiqgw9xgaxr6jr456qmww6kzghqrnbc7aiiww3h6db5vw53";
+  }) { inherit (pkgs) lib; })
+    gitignoreSource;
+
   withPatches = pkg: patches:
     pkg.overrideAttrs (old: {
       patches = (old.patches or []) ++ (map (patch: if (typeOf patch) == "path"
@@ -59,85 +73,31 @@ let
         patches);
     });
 
-in with pkgs; let
-  zstdStatic = callPackage "${nixpkgs}/pkgs/tools/compression/zstd" {
-    static = true;
-    buildContrib = false;
-    doCheck = false;
-  };
-
   # tests don't like boost17x (which is boost177 at the time of writing)
-  boost = boost175;
+  boost = pkgs.boost175;
 
   # current clang13 cannot compile Scylla with sanitizers:
-  llvm = llvmPackages_12;
-  # llvm = llvmPackages_latest;
+  llvm = pkgs.llvmPackages_12;
+  # llvm = pkgs.llvmPackages_latest;
 
-  clang = llvm.clang;
-  cc = llvm.stdenv.cc;
+  stdenvUnwrapped = llvm.stdenv;
 
   # define custom ccache- and distcc-aware wrappers for all relevant
   # compile drivers (used only in shell env)
-  wrappers =
-    let wrap = pkg: driver: ''
-      #! ${stdenv.shell} -e
-      driver=${pkg}/bin/${driver}
-      dist_driver="$driver${if ((match "clang.*" driver) != null) then " -Wno-error=unused-command-line-argument" else ""}"
-      distcc=${distcc}/bin/distcc
-      ccache=${ccache}/bin/ccache
+  cc-wrappers = pkgs.callPackage ./dist/nix/pkg/custom/ccache-distcc-wrap {
+    cc = stdenvUnwrapped.cc;
+    clang = llvm.clang;
+    inherit (pkgs) gcc;
+  };
 
-      export DISTCC_IO_TIMEOUT=1200  # hello, repair/row_level.cc
+  stdenv = if shell then pkgs.overrideCC stdenvUnwrapped cc-wrappers
+           else stdenvUnwrapped;
 
-      wrap=
-      if [[ -z "$NODISTCC" ]]; then
-        wrap=d
-      fi
-      if [[ -n "$CCACHE_DIR" ]]; then
-        wrap+=c
-      fi
-
-      if [[ -z "$wrap" ]]; then
-        exec $driver "$@"
-      elif [[ "$wrap" == d ]]; then
-        exec $distcc $dist_driver "$@"
-      elif [[ "$wrap" == c ]]; then
-        exec $ccache $driver "$@"
-      elif [[ "$wrap" == dc ]]; then
-        export CCACHE_PREFIX=$distcc
-        exec $ccache $dist_driver "$@"
-      else
-        echo wrapper bug 1>&2
-        exit 1
-      fi
-    ''; in runCommand "distcc-ccache-wrap" { } ''
-      ${coreutils}/bin/mkdir -p $out/bin
-      ${lib.concatStrings (map ({pkg, driver}: ''
-        ${coreutils}/bin/echo ${lib.escapeShellArg (wrap pkg driver)} > $out/bin/${driver}
-        ${coreutils}/bin/chmod +x $out/bin/${driver}
-      '') [
-        { pkg = gcc; driver = "gcc"; }
-        { pkg = gcc; driver = "g++"; }
-        { pkg = clang; driver = "clang"; }
-        { pkg = clang; driver = "clang++"; }
-        { pkg = cc; driver = "cc"; }
-        { pkg = cc; driver = "c++"; }
-      ])}
-    '';
-
-  stdenv = if shell
-           then overrideCC llvm.stdenv wrappers
-           else llvm.stdenv;
-
-  # filter out anything .gitignored (if not flake -- for flakes nix
-  # does it itself, and much more efficiently) _and_ any .nix files
   noNix = path: type: type != "regular" || (match ".*\.nix" path) == null;
-  src = builtins.filterSource noNix
-    (if flake
-     then srcPath
-     else gitignoreSource srcPath);
+  src = builtins.filterSource noNix (if flake then srcPath
+                                     else gitignoreSource srcPath);
 
-  derive = if shell
-           then pkgs.mkShell.override { inherit stdenv; }
+  derive = if shell then pkgs.mkShell.override { inherit stdenv; }
            else stdenv.mkDerivation;
 
 in derive ({
@@ -150,14 +110,14 @@ in derive ({
   # "aspirational" all the way to "cargo cult ritual" -- i.e. not
   # expected to be actually correct or verifiable.  but it's the
   # thought that counts!
-  nativeBuildInputs = [
+  nativeBuildInputs = with pkgs; [
     ant
     antlr3
     boost
     cargo
     cmake
+    cxxbridge
     gcc
-    # openjdk8_headless
     openjdk11_headless
     libtool
     llvm.bintools
@@ -182,11 +142,9 @@ in derive ({
     ]))
     ragel
     stow
-
-    (import ./dist/nix/cxxbridge { inherit pkgs; })
   ] ++ (devInputs { inherit pkgs llvm withPatches; });
 
-  buildInputs = [
+  buildInputs = with pkgs; [
     antlr3
     boost
     c-ares
@@ -219,17 +177,15 @@ in derive ({
     systemd
     thrift
     valgrind
+    wasmtime
     xorg.libpciaccess
     xxHash
     zlib
     zstdStatic
-
-    # wasmtime library & headers
-    (import ./dist/nix/wasmtime { inherit pkgs llvm clang; })
   ];
 
-  JAVA8_HOME = "${openjdk8_headless}/lib/openjdk";
-  JAVA_HOME = "${openjdk11_headless}/lib/openjdk";
+  JAVA8_HOME = "${pkgs.openjdk8_headless}/lib/openjdk";
+  JAVA_HOME = "${pkgs.openjdk11_headless}/lib/openjdk";
 
 }
 // (if shell then {
@@ -250,7 +206,7 @@ in derive ({
   configurePhase = "./configure.py${if verbose then " --verbose" else ""} --mode=${mode}";
 
   buildPhase = ''
-    ${ninja}/bin/ninja \
+    ${pkgs.ninja}/bin/ninja \
       build/${mode}/scylla \
       build/${mode}/iotune \
 
