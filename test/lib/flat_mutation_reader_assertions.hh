@@ -12,6 +12,7 @@
 #include <seastar/util/backtrace.hh>
 #include "readers/flat_mutation_reader.hh"
 #include "readers/flat_mutation_reader_v2.hh"
+#include "readers/mutation_fragment_v1_stream.hh"
 #include "mutation_assertions.hh"
 #include "schema.hh"
 #include "test/lib/log.hh"
@@ -536,6 +537,151 @@ public:
 
 inline
 flat_reader_assertions assert_that(flat_mutation_reader r) {
+    return { std::move(r) };
+}
+
+// Intended to be called in a seastar thread
+class mfv1s_assertions {
+    mutation_fragment_v1_stream _reader;
+private:
+    mutation_fragment_opt read_next() {
+        return _reader().get0();
+    }
+public:
+    mfv1s_assertions(mutation_fragment_v1_stream reader)
+        : _reader(std::move(reader))
+    { }
+
+    ~mfv1s_assertions() {
+        _reader.close().get();
+    }
+
+    mfv1s_assertions(const mfv1s_assertions&) = delete;
+    mfv1s_assertions(mfv1s_assertions&&) = default;
+
+    mfv1s_assertions& operator=(mfv1s_assertions&& o) {
+        if (this != &o) {
+            _reader.close().get();
+            _reader = std::move(o._reader);
+        }
+        return *this;
+    }
+
+    mfv1s_assertions& produces_partition_start(const dht::decorated_key& dk,
+                                                     std::optional<tombstone> tomb = std::nullopt) {
+        testlog.trace("Expecting partition start with key {}", dk);
+        auto mfopt = read_next();
+        if (!mfopt) {
+            BOOST_FAIL(format("Expected: partition start with key {}, got end of stream", dk));
+        }
+        if (!mfopt->is_partition_start()) {
+            BOOST_FAIL(format("Expected: partition start with key {}, got: {}", dk, mutation_fragment::printer(*_reader.schema(), *mfopt)));
+        }
+        if (!mfopt->as_partition_start().key().equal(*_reader.schema(), dk)) {
+            BOOST_FAIL(format("Expected: partition start with key {}, got: {}", dk, mutation_fragment::printer(*_reader.schema(), *mfopt)));
+        }
+        if (tomb && mfopt->as_partition_start().partition_tombstone() != *tomb) {
+            BOOST_FAIL(format("Expected: partition start with tombstone {}, got: {}", *tomb, mutation_fragment::printer(*_reader.schema(), *mfopt)));
+        }
+        return *this;
+    }
+
+    mfv1s_assertions& produces_partition_end() {
+        testlog.trace("Expecting partition end");
+        auto mfopt = read_next();
+        if (!mfopt) {
+            BOOST_FAIL(format("Expected partition end but got end of stream"));
+        }
+        if (!mfopt->is_end_of_partition()) {
+            BOOST_FAIL(format("Expected partition end but got {}", mutation_fragment::printer(*_reader.schema(), *mfopt)));
+        }
+        return *this;
+    }
+
+    mfv1s_assertions& produces_end_of_stream() {
+        testlog.trace("Expecting end of stream");
+        auto mfopt = read_next();
+        if (bool(mfopt)) {
+            BOOST_FAIL(format("Expected end of stream, got {}", mutation_fragment::printer(*_reader.schema(), *mfopt)));
+        }
+        return *this;
+    }
+
+    mfv1s_assertions& produces_partition(const mutation& m) {
+        return produces(m);
+    }
+
+    mfv1s_assertions& produces(const mutation& m, const std::optional<query::clustering_row_ranges>& ck_ranges = {}) {
+        auto mo = read_mutation_from_flat_mutation_reader(_reader).get0();
+        if (!mo) {
+            BOOST_FAIL(format("Expected {}, but got end of stream, at: {}", m, seastar::current_backtrace()));
+        }
+        memory::scoped_critical_alloc_section dfg;
+        assert_that(*mo).is_equal_to(m, ck_ranges);
+        return *this;
+    }
+
+    void has_monotonic_positions() {
+        position_in_partition::less_compare less(*_reader.schema());
+        mutation_fragment_opt previous_fragment;
+        mutation_fragment_opt previous_partition;
+        bool inside_partition = false;
+        for (;;) {
+            auto mfo = read_next();
+            if (!mfo) {
+                break;
+            }
+            if (mfo->is_partition_start()) {
+                BOOST_REQUIRE(!inside_partition);
+                auto& dk = mfo->as_partition_start().key();
+                if (previous_partition && !previous_partition->as_partition_start().key().less_compare(*_reader.schema(), dk)) {
+                    BOOST_FAIL(format("previous partition had greater or equal key: prev={}, current={}",
+                                      mutation_fragment::printer(*_reader.schema(), *previous_partition), mutation_fragment::printer(*_reader.schema(), *mfo)));
+                }
+                previous_partition = std::move(mfo);
+                previous_fragment = std::nullopt;
+                inside_partition = true;
+            } else if (mfo->is_end_of_partition()) {
+                BOOST_REQUIRE(inside_partition);
+                inside_partition = false;
+            } else {
+                BOOST_REQUIRE(inside_partition);
+                if (previous_fragment) {
+                    if (less(mfo->position(), previous_fragment->position())) {
+                        BOOST_FAIL(format("previous fragment has greater position: prev={}, current={}",
+                                          mutation_fragment::printer(*_reader.schema(), *previous_fragment), mutation_fragment::printer(*_reader.schema(), *mfo)));
+                    }
+                }
+                previous_fragment = std::move(mfo);
+            }
+        }
+        BOOST_REQUIRE(!inside_partition);
+    }
+
+    mfv1s_assertions& next_partition() {
+        testlog.trace("Skip to next partition");
+        _reader.next_partition().get();
+        return *this;
+    }
+
+    mfv1s_assertions& produces_compacted(const mutation& m, gc_clock::time_point query_time,
+            const std::optional<query::clustering_row_ranges>& ck_ranges = {}) {
+        auto mo = read_mutation_from_flat_mutation_reader(_reader).get0();
+        // If the passed in mutation is empty, allow for the reader to produce an empty or no partition.
+        if (m.partition().empty() && !mo) {
+            return *this;
+        }
+        BOOST_REQUIRE(bool(mo));
+        memory::scoped_critical_alloc_section dfg;
+        mutation got = *mo;
+        got.partition().compact_for_compaction(*m.schema(), always_gc, got.decorated_key(), query_time);
+        assert_that(got).is_equal_to(m, ck_ranges);
+        return *this;
+    }
+};
+
+inline
+mfv1s_assertions assert_that(mutation_fragment_v1_stream r) {
     return { std::move(r) };
 }
 
