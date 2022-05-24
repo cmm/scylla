@@ -10,6 +10,7 @@
 
 #include "readers/combined.hh"
 #include "readers/flat_mutation_reader_v2.hh"
+#include "readers/mutation_fragment_v1_stream.hh"
 #include "replica/memtable.hh"
 #include "utils/phased_barrier.hh"
 #include "test/lib/reader_concurrency_semaphore.hh"
@@ -67,7 +68,7 @@ private:
                  mutation_reader::forwarding::yes));
         }
         _memtables.push_back(new_memtable());
-        auto&& rd = downgrade_to_v1(make_combined_reader(new_mt->schema(), permit, std::move(readers)));
+        auto&& rd = mutation_fragment_v1_stream(make_combined_reader(new_mt->schema(), permit, std::move(readers)));
         auto close_rd = deferred_close(rd);
         consume_partitions(rd, [&] (mutation&& m) {
             new_mt->apply(std::move(m));

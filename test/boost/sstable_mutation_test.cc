@@ -1383,7 +1383,7 @@ SEASTAR_TEST_CASE(test_large_index_pages_do_not_cause_large_allocations) {
 
     auto pr = dht::partition_range::make_singular(small_keys[0]);
 
-    mutation expected = *with_closeable(downgrade_to_v1(mt->make_flat_reader(s, env.make_reader_permit(), pr)), [] (flat_mutation_reader& mt_reader) {
+    mutation expected = *with_closeable(mutation_fragment_v1_stream(mt->make_flat_reader(s, env.make_reader_permit(), pr)), [] (auto& mt_reader) {
         return read_mutation_from_flat_mutation_reader(mt_reader);
     }).get0();
 

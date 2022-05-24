@@ -1415,7 +1415,7 @@ void test_downgrade_to_v1_clear_buffer(tests::reader_concurrency_semaphore_wrapp
 
     auto ms = populate(s.schema(), mutations, gc_clock::now());
 
-    assert_that(downgrade_to_v1(ms.make_reader_v2(s.schema(), semaphore.make_permit())))
+    assert_that(mutation_fragment_v1_stream(ms.make_reader_v2(s.schema(), semaphore.make_permit())))
             .produces_partition_start(pkey) // Read something.
             .next_partition()               // Next partition clears buffer.
             .produces_end_of_stream();      // Expect no active range tombstone at this point.
@@ -1635,7 +1635,7 @@ void test_reader_conversions(tests::reader_concurrency_semaphore_wrapper& semaph
 
         {
             auto rd = ms.make_reader_v2(m.schema(), semaphore.make_permit());
-            assert_that(downgrade_to_v1(std::move(rd)))
+            assert_that(mutation_fragment_v1_stream(std::move(rd)))
                     .produces_compacted(m_compacted, query_time);
         }
     });
@@ -1739,7 +1739,7 @@ void run_mutation_source_tests_downgrade(populate_fn_ex populate, bool with_part
                                               tracing::trace_state_ptr tr,
                                               streamed_mutation::forwarding fwd,
                                               mutation_reader::forwarding mr_fwd) {
-            return downgrade_to_v1(
+            return mutation_fragment_v1_stream(
                     ms.make_reader_v2(s, std::move(permit), pr, slice, pc, std::move(tr), fwd, mr_fwd));
         });
     }, with_partition_range_forwarding);
