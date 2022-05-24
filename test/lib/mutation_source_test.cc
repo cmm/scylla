@@ -964,7 +964,7 @@ void test_mutation_reader_fragments_have_monotonic_positions(tests::reader_concu
     for_each_mutation([&semaphore, &populate] (const mutation& m) {
         auto ms = populate(m.schema(), {m}, gc_clock::now());
 
-        auto rd = ms.make_reader(m.schema(), semaphore.make_permit());
+        auto rd = ms.make_fragment_v1_stream(m.schema(), semaphore.make_permit());
         assert_that(std::move(rd)).has_monotonic_positions();
 
         auto rd2 = ms.make_reader_v2(m.schema(), semaphore.make_permit());
@@ -1320,7 +1320,7 @@ void test_slicing_with_overlapping_range_tombstones(tests::reader_concurrency_se
 
     {
         auto slice = partition_slice_builder(*s).with_range(range).build();
-        auto rd = ds.make_reader(s, semaphore.make_permit(), query::full_partition_range, slice);
+        auto rd = ds.make_fragment_v1_stream(s, semaphore.make_permit(), query::full_partition_range, slice);
         auto close_rd = deferred_close(rd);
 
         auto prange = position_range(range);
@@ -1361,7 +1361,7 @@ void test_slicing_with_overlapping_range_tombstones(tests::reader_concurrency_se
 
     // Check fast_forward_to()
     {
-        auto rd = ds.make_reader(s, semaphore.make_permit(), query::full_partition_range, s->full_slice(), default_priority_class(),
+        auto rd = ds.make_fragment_v1_stream(s, semaphore.make_permit(), query::full_partition_range, s->full_slice(), default_priority_class(),
             nullptr, streamed_mutation::forwarding::yes);
         auto close_rd = deferred_close(rd);
 
@@ -1772,7 +1772,7 @@ void run_mutation_source_tests_reverse(populate_fn_ex populate, bool with_partit
                         .with_option<query::partition_slice::option::reversed>()
                         .build());
 
-            return ms.make_reader(query_schema, std::move(permit), pr, reversed_slices.back(), pc, tr, fwd, mr_fwd);
+            return ms.make_fragment_v1_stream(query_schema, std::move(permit), pr, reversed_slices.back(), pc, tr, fwd, mr_fwd);
         });
       } else {
           return mutation_source([table_schema, ms = std::move(ms), reversed_slices = std::list<query::partition_slice>()] (
