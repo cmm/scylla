@@ -964,11 +964,8 @@ void test_mutation_reader_fragments_have_monotonic_positions(tests::reader_concu
     for_each_mutation([&semaphore, &populate] (const mutation& m) {
         auto ms = populate(m.schema(), {m}, gc_clock::now());
 
-        auto rd = ms.make_reader(m.schema(), semaphore.make_permit());
+        auto rd = ms.make_reader_v2(m.schema(), semaphore.make_permit());
         assert_that(std::move(rd)).has_monotonic_positions();
-
-        auto rd2 = ms.make_reader_v2(m.schema(), semaphore.make_permit());
-        assert_that(std::move(rd2)).has_monotonic_positions();
     });
 }
 
@@ -1343,7 +1340,7 @@ void test_slicing_with_overlapping_range_tombstones(tests::reader_concurrency_se
 
     // Check fast_forward_to()
     {
-        auto rd = ds.make_reader(s, semaphore.make_permit(), query::full_partition_range, s->full_slice(), default_priority_class(),
+        auto rd = ds.make_fragment_v1_stream(s, semaphore.make_permit(), query::full_partition_range, s->full_slice(), default_priority_class(),
             nullptr, streamed_mutation::forwarding::yes);
         auto close_rd = deferred_close(rd);
 
