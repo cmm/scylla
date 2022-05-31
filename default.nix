@@ -47,6 +47,7 @@ let
       (final: _: {
         cxxbridge = final.callPackage ./dist/nix/pkg/upstreamable/cxxbridge { };
         wasmtime = final.callPackage ./dist/nix/pkg/upstreamable/wasmtime { };
+        scylla-driver = final.callPackage ./dist/nix/pkg/upstreamable/python-driver { };
 
         # build zstd statically, since the default dynamic-built zstd
         # lacks some things Scylla needs
@@ -126,8 +127,8 @@ in derive ({
     pkg-config
     python2
     (python3.withPackages (ps: with ps; [
+      aiohttp
       boto3
-      cassandra-driver
       colorama
       distro
       magic
@@ -137,7 +138,9 @@ in derive ({
       pyudev
       pyyaml
       requests
+      scylla-driver
       setuptools
+      tabulate
       urwid
     ]))
     ragel
