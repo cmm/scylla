@@ -17,8 +17,7 @@
 
 { flake ? false
 , shell ? false
-, nixpkgs ? <nixpkgs>
-, system ? null
+, pkgs ? import <nixpkgs> { system = builtins.currentSystem; overlays = [ (import ./dist/nix/overlay.nix <nixpkgs>) ]; }
 , srcPath ? builtins.path { path = ./.; name = "scylla"; }
 , repl ? null
 , mode ? "release"
@@ -26,7 +25,7 @@
 
 # shell env will want to add stuff to the environment, and the way
 # for it to do so is to pass us a function with this signatire:
-, devInputs ? ({ pkgs, llvm, withPatches }: [])
+, devInputs ? ({ pkgs, llvm }: [])
 } @ args:
 
 let
@@ -38,41 +37,13 @@ let
     match
     split
     trace
-    typeOf
   ;
-
-  pkgs = import nixpkgs {
-    system = if system != null then system else builtins.currentSystem;
-    overlays = [
-      (final: _: {
-        cxxbridge = final.callPackage ./dist/nix/pkg/upstreamable/cxxbridge { };
-        wasmtime = final.callPackage ./dist/nix/pkg/upstreamable/wasmtime { };
-        scylla-driver = final.callPackage ./dist/nix/pkg/upstreamable/python-driver { };
-
-        # build zstd statically, since the default dynamic-built zstd
-        # lacks some things Scylla needs
-        zstdStatic = final.callPackage "${nixpkgs}/pkgs/tools/compression/zstd" {
-          static = true;
-          buildContrib = false;
-          doCheck = false;
-        };
-      })
-    ];
-  };
 
   inherit (import (builtins.fetchTarball {
     url = "https://github.com/hercules-ci/gitignore/archive/5b9e0ff9d3b551234b4f3eb3983744fa354b17f1.tar.gz";
     sha256 = "01l4phiqgw9xgaxr6jr456qmww6kzghqrnbc7aiiww3h6db5vw53";
   }) { inherit (pkgs) lib; })
     gitignoreSource;
-
-  withPatches = pkg: patches:
-    pkg.overrideAttrs (old: {
-      patches = (old.patches or []) ++ (map (patch: if (typeOf patch) == "path"
-                                                    then patch
-                                                    else pkgs.fetchpatch patch)
-        patches);
-    });
 
   # tests don't like boost17x (which is boost177 at the time of writing)
   boost = pkgs.boost175;
@@ -145,7 +116,7 @@ in derive ({
     ]))
     ragel
     stow
-  ] ++ (devInputs { inherit pkgs llvm withPatches; });
+  ] ++ (devInputs { inherit pkgs llvm; });
 
   buildInputs = with pkgs; [
     antlr3

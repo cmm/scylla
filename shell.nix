@@ -9,7 +9,7 @@ args:
 import ./default.nix (args // {
   shell = true;
 
-  devInputs = { pkgs, llvm, withPatches }: with pkgs; [
+  devInputs = { pkgs, llvm }: with pkgs; [
     # for impure building
     ccache
     distcc
@@ -17,12 +17,9 @@ import ./default.nix (args // {
     # for debugging
     binutils  # addr2line etc.
     elfutils
-    (withPatches gdb [
-      {
-        url = "https://github.com/cmm/gnu-binutils/commit/eb9148f3b9b377c5c4bae8cb4e29e5fdccd45ab0.patch";
-        sha256 = "1qhc8a6lssnvpjvfc6sidfv9hmz96gxz4czcpannd7z5dd82mv1l";
-      }
-    ])
+
+    gdbWithGreenThreadSupport
+
     llvm.llvm
     lz4       # coredumps on modern Systemd installations are lz4-compressed
 

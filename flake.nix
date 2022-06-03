@@ -6,30 +6,46 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils } @ inputs:
-    flake-utils.lib.eachDefaultSystem (system: let
-      pkgs = nixpkgs.legacyPackages.${system};
-      packageName = "scylla";
+  outputs = { self, nixpkgs, flake-utils } @ inputs: {
+    overlays.default = import ./dist/nix/overlay.nix nixpkgs;
 
-      repl = pkgs.writeText "repl" ''
-        let
-          self = builtins.getFlake (toString ${inputs.self.outPath});
-          pkgs = import self.inputs.nixpkgs { system = "${system}"; };
-        in {
-          inherit self pkgs;
-        }
-      '';
+    lib = {
+      _attrs = system: let
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ self.overlays.default ];
+        };
 
-      args = {
-        flake = true;
-        srcPath = "${self}";
-        inherit nixpkgs system repl;
+        repl = pkgs.writeText "repl" ''
+          let
+            self = builtins.getFlake (toString ${self.outPath});
+            attrs = self.lib._attrs "${system}";
+          in {
+            inherit self;
+            inherit (attrs) pkgs;
+          }
+        '';
+
+        args = {
+          flake = true;
+          srcPath = "${self}";
+          inherit pkgs repl;
+        };
+
+        package = import ./default.nixpkgs args;
+        devShell = import ./shell.nix args;
+      in {
+        inherit pkgs args package devShell;
       };
-    in {
-      packages.${packageName} = import ./default.nix args;
+    };
+  }
+  // (flake-utils.lib.eachDefaultSystem (system: let
+    packageName = "scylla";
+    attrs = self.lib._attrs system;
+  in {
+    packages.${packageName} = attrs.package;
+    defaultPackage = self.packages.${system}.${packageName};
 
-      defaultPackage = self.packages.${system}.${packageName};
-
-      devShell = import ./shell.nix args;
-    });
+    inherit (attrs) devShell;
+  }));
 }
