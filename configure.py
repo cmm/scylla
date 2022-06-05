@@ -167,6 +167,9 @@ def flag_supported(flag, compiler):
 
 
 def linker_flags(compiler):
+    if args.ld is not None:
+        return '-fuse-ld='+args.ld
+
     src_main = 'int main(int argc, char **argv) { return 0; }'
     link_flags = ['-fuse-ld=lld']
     if try_compile_and_link(source=src_main, flags=link_flags, compiler=compiler):
@@ -602,6 +605,8 @@ arg_parser.add_argument('--compiler', action='store', dest='cxx', default='clang
                         help='C++ compiler path')
 arg_parser.add_argument('--c-compiler', action='store', dest='cc', default='clang',
                         help='C compiler path')
+arg_parser.add_argument('--linker', action='store', dest='ld',
+                        help='The linker to use')
 add_tristate(arg_parser, name='dpdk', dest='dpdk',
                         help='Use dpdk (from seastar dpdk sources) (default=True for release builds)')
 arg_parser.add_argument('--dpdk-target', action='store', dest='dpdk_target', default='',
