@@ -94,6 +94,7 @@ in derive ({
     libtool
     llvm.bintools
     maven
+    mold
     ninja
     pkg-config
     python2
