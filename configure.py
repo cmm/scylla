@@ -171,6 +171,10 @@ def linker_flags(compiler):
         return '-fuse-ld='+args.ld
 
     src_main = 'int main(int argc, char **argv) { return 0; }'
+    link_flags = ['-fuse-ld=mold']
+    if try_compile_and_link(source=src_main, flags=link_flags, compiler=compiler):
+        print('Note: using the mold linker')
+        return ' '.join(link_flags)
     link_flags = ['-fuse-ld=lld']
     if try_compile_and_link(source=src_main, flags=link_flags, compiler=compiler):
         print('Note: using the lld linker')
@@ -194,10 +198,15 @@ def linker_flags(compiler):
             linker = 'lld'
         except:
             pass
+        try:
+            subprocess.call(["mold", "-v"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            linker = 'mold'
+        except:
+            pass
         if linker:
             print(f'Linker {linker} found, but the compilation attempt failed, defaulting to default system linker')
         else:
-            print('Note: neither lld nor gold found; using default system linker')
+            print('Note: none of mold, lld or gold found; using default system linker')
         return ''
 
 
