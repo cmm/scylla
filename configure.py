@@ -1693,6 +1693,8 @@ abseil_libs = ['absl/' + lib for lib in [
     'debugging/libabsl_demangle_internal.a',
     'time/libabsl_time.a',
     'time/libabsl_time_zone.a',
+    'strings/libabsl_strings.a',
+    'strings/libabsl_strings_internal.a',
     'numeric/libabsl_int128.a',
     'hash/libabsl_city.a',
     'hash/libabsl_hash.a',
