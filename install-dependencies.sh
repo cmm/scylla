@@ -108,6 +108,11 @@ if [ "$(uname -m)" != "s390x" ]; then
     fedora_packages+=(lld)
 fi
 
+# mold is only for x86 and arm
+if [ "$(uname -m)" != "s390x" -a "$(uname -m)" != "ppc64le" ]; then
+    fedora_packages+=(mold)
+fi
+
 fedora_python3_packages=(
     python3-pyyaml
     python3-urwid
