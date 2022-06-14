@@ -947,6 +947,7 @@ class reclaim_timer {
     const is_preemptible _preemptible;
     const size_t _memory_to_release;
     const size_t _segments_to_release;
+    const size_t _reserve_goal, _reserve_max;
     tracker::impl* _tracker;
 
     const bool _debug_enabled;
@@ -1262,6 +1263,8 @@ reclaim_timer::reclaim_timer(const char* name, is_preemptible preemptible, size_
     , _preemptible(preemptible)
     , _memory_to_release(memory_to_release)
     , _segments_to_release(segments_to_release)
+    , _reserve_goal(shard_segment_pool.current_emergency_reserve_goal())
+    , _reserve_max(shard_segment_pool.emergency_reserve_max())
     , _tracker(tracker ? tracker : _parent ? _parent->_tracker : nullptr)
     , _debug_enabled(timing_logger.is_enabled(logging::log_level::debug))
 {
@@ -1326,9 +1329,10 @@ void reclaim_timer::report() const noexcept {
     auto MiB = 1024*1024;
     auto msg_extra = _stall_detected ? fmt::format(", at {}", current_backtrace()) : "";
 
-    timing_logger.log(time_level, "{}{} took {} us, trying to release {:.3f} MiB {}preemptibly{}",
-                        *this, _duration_logged_below != clock::duration::zero() ? " (rest)" : "", (_duration + 500ns) / 1us, (float)_memory_to_release / MiB, _preemptible ? "" : "non-",
-                        msg_extra);
+    timing_logger.log(time_level, "{}{} took {} us, trying to release {:.3f} MiB {}preemptibly, reserve: {{goal: {}, max: {}}}{}",
+                      *this, _duration_logged_below != clock::duration::zero() ? " (rest)" : "", (_duration + 500ns) / 1us, (float)_memory_to_release / MiB, _preemptible ? "" : "non-",
+                      _reserve_goal, _reserve_max,
+                      msg_extra);
     log_if_any(info_level, "segments to release", _segments_to_release);
     if (_memory_released > 0) {
         auto bytes_per_second =
