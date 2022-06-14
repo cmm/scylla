@@ -962,16 +962,7 @@ class reclaim_timer {
 public:
     inline reclaim_timer(const char* name, is_preemptible preemptible, size_t memory_to_release, size_t segments_to_release, tracker::impl* tracker = nullptr);
 
-    ~reclaim_timer() {
-        _duration = clock::now() - _start;
-        _stall_detected = _duration >= engine().get_blocked_reactor_notify_ms();
-        if (_debug_enabled || _stall_detected) {
-            sample_stats(_end_stats);
-            _stat_diff = _end_stats - _start_stats;
-            report();
-        }
-        _active_timer = _parent;
-    }
+    inline ~reclaim_timer();
 
     size_t set_memory_released(size_t memory_released) noexcept {
         return this->_memory_released = memory_released;
@@ -1275,6 +1266,17 @@ reclaim_timer::reclaim_timer(const char* name, is_preemptible preemptible, size_
     _active_timer = this;
     _start = clock::now();
     sample_stats(_start_stats);
+}
+
+reclaim_timer::~reclaim_timer() {
+    _duration = clock::now() - _start;
+    _stall_detected = _duration >= engine().get_blocked_reactor_notify_ms();
+    if (_debug_enabled || _stall_detected) {
+        sample_stats(_end_stats);
+        _stat_diff = _end_stats - _start_stats;
+        report();
+    }
+    _active_timer = _parent;
 }
 
 void reclaim_timer::sample_stats(stats& data) {
