@@ -1262,7 +1262,7 @@ reclaim_timer::reclaim_timer(const char* name, is_preemptible preemptible, size_
     , _preemptible(preemptible)
     , _memory_to_release(memory_to_release)
     , _segments_to_release(segments_to_release)
-    , _tracker(tracker)
+    , _tracker(tracker ? tracker : _parent ? _parent->_tracker : nullptr)
     , _debug_enabled(timing_logger.is_enabled(logging::log_level::debug))
 {
     _active_timer = this;
