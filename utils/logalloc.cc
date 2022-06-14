@@ -939,6 +939,7 @@ class reclaim_timer {
     };
 
     static thread_local reclaim_timer* _active_timer;
+    static thread_local clock::duration _duration_threshold;
 
     reclaim_timer* _parent;
     const char* _name;
@@ -1256,6 +1257,8 @@ segment::occupancy() {
 }
 
 thread_local reclaim_timer* reclaim_timer::_active_timer;
+thread_local clock::duration reclaim_timer::_duration_threshold;
+
 reclaim_timer::reclaim_timer(const char* name, is_preemptible preemptible, size_t memory_to_release, size_t segments_to_release, tracker::impl* tracker)
     : _parent(_active_timer)
     , _name(name)
@@ -1267,6 +1270,9 @@ reclaim_timer::reclaim_timer(const char* name, is_preemptible preemptible, size_
     , _tracker(tracker ? tracker : _parent ? _parent->_tracker : nullptr)
     , _debug_enabled(timing_logger.is_enabled(logging::log_level::debug))
 {
+    if (!_active_timer) {
+        _duration_threshold = engine().get_blocked_reactor_notify_ms();
+    }
     _active_timer = this;
     _start = clock::now();
     sample_stats(_start_stats);
@@ -1275,7 +1281,10 @@ reclaim_timer::reclaim_timer(const char* name, is_preemptible preemptible, size_
 reclaim_timer::~reclaim_timer() {
     _duration = clock::now() - _start;
     _duration -= _duration_logged_below;
-    _stall_detected = _duration >= engine().get_blocked_reactor_notify_ms();
+    if (_duration >= _duration_threshold) {
+        _stall_detected = true;
+        _duration_threshold = _duration;
+    }
     if (_debug_enabled || _stall_detected) {
         sample_stats(_end_stats);
         _stat_diff = _end_stats - _start_stats;
