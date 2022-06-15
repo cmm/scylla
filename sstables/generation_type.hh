@@ -9,5 +9,5 @@
 #include <cstdint>
 
 namespace sstables {
-using generation_type = int64_t;
+using generation_type = uint64_t;
 }
