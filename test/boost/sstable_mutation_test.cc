@@ -1119,7 +1119,7 @@ SEASTAR_TEST_CASE(test_promoted_index_repeats_open_tombstones) {
         int id = 0;
         for (auto& compact : { schema_builder::compact_storage::no, schema_builder::compact_storage::yes }) {
             generation::type generation{id++};
-            schema_builder builder("ks", format("cf{:d}", generation.value()));
+            schema_builder builder("ks", format("cf{:d}", generation::value(generation)));
             builder.with_column("p", utf8_type, column_kind::partition_key);
             builder.with_column("c1", bytes_type, column_kind::clustering_key);
             builder.with_column("v", int32_type);

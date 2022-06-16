@@ -2128,7 +2128,7 @@ SEASTAR_TEST_CASE(sstable_set_incremental_selector) {
         auto sstables = selector.select(key).sstables;
         BOOST_REQUIRE_EQUAL(sstables.size(), expected_gens.size());
         for (auto& sst : sstables) {
-            BOOST_REQUIRE(expected_gens.contains(sst->generation().value()));
+            BOOST_REQUIRE(expected_gens.contains(generation::value(sst->generation())));
         }
     };
 

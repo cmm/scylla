@@ -577,13 +577,13 @@ private:
         assert(_sstable_generation);
         // FIXME: better way of ensuring we don't attempt to
         // overwrite an existing table.
-        return sstables::generation::type{(*_sstable_generation)++.value() * smp::count + this_shard_id()};
+        return sstables::generation::type{sstables::generation::value((*_sstable_generation)++) * smp::count + this_shard_id()};
     }
 
     // inverse of calculate_generation_for_new_table(), used to determine which
     // shard a sstable should be opened at.
     static seastar::shard_id calculate_shard_from_sstable_generation(sstables::generation::type sstable_generation) {
-        return sstable_generation.value() % smp::count;
+        return sstables::generation::value(sstable_generation) % smp::count;
     }
 public:
     // This will update sstable lists on behalf of off-strategy compaction, where

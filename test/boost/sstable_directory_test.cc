@@ -176,7 +176,7 @@ SEASTAR_TEST_CASE(sstable_directory_test_table_simple_empty_directory_scan) {
     distributed_loader_for_tests::process_sstable_dir(sstdir).get();
     auto max_generation_seen = highest_generation_seen(sstdir).get0();
     // No generation found on empty directory.
-    BOOST_REQUIRE_EQUAL(max_generation_seen.value(), 0);
+    BOOST_REQUIRE_EQUAL(generation::value(max_generation_seen), 0);
    });
   });
 }
@@ -361,7 +361,7 @@ SEASTAR_THREAD_TEST_CASE(sstable_directory_test_generation_sanity) {
             [] (sharded<sstables::sstable_directory>& sstdir) {
     distributed_loader_for_tests::process_sstable_dir(sstdir).get();
     auto max_generation_seen = highest_generation_seen(sstdir).get0();
-    BOOST_REQUIRE_EQUAL(max_generation_seen.value(), 3333);
+    BOOST_REQUIRE_EQUAL(generation::value(max_generation_seen), 3333);
    });
   }).get();
 }
@@ -572,7 +572,7 @@ SEASTAR_TEST_CASE(sstable_directory_shared_sstables_reshard_correctly) {
 
         auto max_generation_seen = highest_generation_seen(sstdir).get0();
         std::atomic<generation::value_type> generation_for_test = {};
-        generation_for_test.store(max_generation_seen.value() + 1, std::memory_order_relaxed);
+        generation_for_test.store(generation::value(max_generation_seen) + 1, std::memory_order_relaxed);
 
         distributed_loader_for_tests::reshard(sstdir, e.db(), "ks", "cf", [&e, upload_path, &generation_for_test] (shard_id id) {
             generation::type generation{generation_for_test.fetch_add(1, std::memory_order_relaxed)};
@@ -621,7 +621,7 @@ SEASTAR_TEST_CASE(sstable_directory_shared_sstables_reshard_distributes_well_eve
 
         auto max_generation_seen = highest_generation_seen(sstdir).get0();
         std::atomic<generation::value_type> generation_for_test = {};
-        generation_for_test.store(max_generation_seen.value() + 1, std::memory_order_relaxed);
+        generation_for_test.store(generation::value(max_generation_seen) + 1, std::memory_order_relaxed);
 
         distributed_loader_for_tests::reshard(sstdir, e.db(), "ks", "cf", [&e, upload_path, &generation_for_test] (shard_id id) {
             generation::type generation{generation_for_test.fetch_add(1, std::memory_order_relaxed)};
@@ -670,7 +670,7 @@ SEASTAR_TEST_CASE(sstable_directory_shared_sstables_reshard_respect_max_threshol
 
         auto max_generation_seen = highest_generation_seen(sstdir).get0();
         std::atomic<generation::value_type> generation_for_test = {};
-        generation_for_test.store(max_generation_seen.value() + 1, std::memory_order_relaxed);
+        generation_for_test.store(generation::value(max_generation_seen) + 1, std::memory_order_relaxed);
 
         distributed_loader_for_tests::reshard(sstdir, e.db(), "ks", "cf", [&e, upload_path, &generation_for_test] (shard_id id) {
             generation::type generation{generation_for_test.fetch_add(1, std::memory_order_relaxed)};
