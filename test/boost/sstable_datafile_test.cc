@@ -67,8 +67,8 @@ namespace fs = std::filesystem;
 
 using namespace sstables;
 
-static const generation_type gen1{1};
-static const generation_type gen2{2};
+static const generation::type gen1{1};
+static const generation::type gen2{2};
 
 static const sstring some_keyspace("ks");
 static const sstring some_column_family("cf");
@@ -103,10 +103,10 @@ SEASTAR_TEST_CASE(datafile_generation_09) {
         m.set_clustered_cell(c_key, r1_col, make_atomic_cell(int32_type, int32_type->decompose(1)));
         mt->apply(std::move(m));
 
-        auto sst = env.make_sstable(s, tmpdir_path, generation_type{9}, sstables::get_highest_sstable_version(), big);
+        auto sst = env.make_sstable(s, tmpdir_path, generation::type{9}, sstables::get_highest_sstable_version(), big);
 
         return write_memtable_to_sstable_for_test(*mt, sst).then([&env, mt, sst, s, tmpdir_path] {
-            auto sst2 = env.make_sstable(s, tmpdir_path, generation_type{9}, sstables::get_highest_sstable_version(), big);
+            auto sst2 = env.make_sstable(s, tmpdir_path, generation::type{9}, sstables::get_highest_sstable_version(), big);
 
             return sstables::test(sst2).read_summary().then([sst, sst2] {
                 summary& sst1_s = sstables::test(sst).get_summary();
@@ -178,9 +178,9 @@ SEASTAR_TEST_CASE(datafile_generation_11) {
             });
         };
 
-        auto sst = env.make_sstable(s, tmpdir_path, generation_type{11}, sstables::get_highest_sstable_version(), big);
+        auto sst = env.make_sstable(s, tmpdir_path, generation::type{11}, sstables::get_highest_sstable_version(), big);
         return write_memtable_to_sstable_for_test(*mt, sst).then([&env, s, sst, mt, verifier, tomb, &static_set_col, tmpdir_path] {
-            return env.reusable_sst(s, tmpdir_path, generation_type{11}).then([&env, s, verifier, tomb, &static_set_col] (auto sstp) mutable {
+            return env.reusable_sst(s, tmpdir_path, generation::type{11}).then([&env, s, verifier, tomb, &static_set_col] (auto sstp) mutable {
                 return do_with(dht::partition_range::make_singular(make_dkey(s, "key1")), [&env, sstp, s, verifier, tomb, &static_set_col] (auto& pr) {
                     auto rd = make_lw_shared<flat_mutation_reader_v2>(sstp->make_reader(s, env.make_reader_permit(), pr, s->full_slice()));
                     return read_mutation_from_flat_mutation_reader(*rd).then([sstp, s, verifier, tomb, &static_set_col, rd] (auto mutation) {
@@ -243,9 +243,9 @@ SEASTAR_TEST_CASE(datafile_generation_12) {
         m.partition().apply_delete(*s, cp, tomb);
         mt->apply(std::move(m));
 
-        auto sst = env.make_sstable(s, tmpdir_path, generation_type{12}, sstables::get_highest_sstable_version(), big);
+        auto sst = env.make_sstable(s, tmpdir_path, generation::type{12}, sstables::get_highest_sstable_version(), big);
         return write_memtable_to_sstable_for_test(*mt, sst).then([&env, s, tomb, tmpdir_path] {
-            return env.reusable_sst(s, tmpdir_path, generation_type{12}).then([&env, s, tomb] (auto sstp) mutable {
+            return env.reusable_sst(s, tmpdir_path, generation::type{12}).then([&env, s, tomb] (auto sstp) mutable {
                 return do_with(dht::partition_range::make_singular(make_dkey(s, "key1")), [&env, sstp, s, tomb] (auto& pr) {
                     auto rd = make_lw_shared<flat_mutation_reader_v2>(sstp->make_reader(s, env.make_reader_permit(), pr, s->full_slice()));
                     return read_mutation_from_flat_mutation_reader(*rd).then([sstp, s, tomb, rd] (auto mutation) {
@@ -263,7 +263,7 @@ SEASTAR_TEST_CASE(datafile_generation_12) {
     });
 }
 
-static future<> sstable_compression_test(compressor_ptr c, generation_type generation) {
+static future<> sstable_compression_test(compressor_ptr c, generation::type generation) {
     return test_setup::do_with_tmp_directory([c, generation] (test_env& env, sstring tmpdir_path) {
         // NOTE: set a given compressor algorithm to schema.
         schema_builder builder(complex_schema());
@@ -302,15 +302,15 @@ static future<> sstable_compression_test(compressor_ptr c, generation_type gener
 }
 
 SEASTAR_TEST_CASE(datafile_generation_13) {
-    return sstable_compression_test(compressor::lz4, generation_type{13});
+    return sstable_compression_test(compressor::lz4, generation::type{13});
 }
 
 SEASTAR_TEST_CASE(datafile_generation_14) {
-    return sstable_compression_test(compressor::snappy, generation_type{14});
+    return sstable_compression_test(compressor::snappy, generation::type{14});
 }
 
 SEASTAR_TEST_CASE(datafile_generation_15) {
-    return sstable_compression_test(compressor::deflate, generation_type{15});
+    return sstable_compression_test(compressor::deflate, generation::type{15});
 }
 
 SEASTAR_TEST_CASE(datafile_generation_16) {
@@ -329,9 +329,9 @@ SEASTAR_TEST_CASE(datafile_generation_16) {
             mtp->apply(std::move(m));
         }
 
-        auto sst = env.make_sstable(s, tmpdir_path, generation_type{16}, sstables::get_highest_sstable_version(), big);
+        auto sst = env.make_sstable(s, tmpdir_path, generation::type{16}, sstables::get_highest_sstable_version(), big);
         return write_memtable_to_sstable_for_test(*mtp, sst).then([&env, s, tmpdir_path] {
-            return env.reusable_sst(s, tmpdir_path, generation_type{16}).then([] (auto s) {
+            return env.reusable_sst(s, tmpdir_path, generation::type{16}).then([] (auto s) {
                 // Not crashing is enough
                 return make_ready_future<>();
             });
@@ -364,9 +364,9 @@ SEASTAR_TEST_CASE(datafile_generation_37) {
         m.set_clustered_cell(c_key, cl2, make_atomic_cell(bytes_type, bytes_type->decompose(data_value(to_bytes("cl2")))));
         mtp->apply(std::move(m));
 
-        auto sst = env.make_sstable(s, tmpdir_path, generation_type{37}, sstables::get_highest_sstable_version(), big);
+        auto sst = env.make_sstable(s, tmpdir_path, generation::type{37}, sstables::get_highest_sstable_version(), big);
         return write_memtable_to_sstable_for_test(*mtp, sst).then([&env, s, tmpdir_path] {
-            return env.reusable_sst(s, tmpdir_path, generation_type{37}).then([&env, s, tmpdir_path] (auto sstp) {
+            return env.reusable_sst(s, tmpdir_path, generation::type{37}).then([&env, s, tmpdir_path] (auto sstp) {
                 return do_with(dht::partition_range::make_singular(make_dkey(s, "key1")), [&env, sstp, s] (auto& pr) {
                     auto rd = make_lw_shared<flat_mutation_reader_v2>(sstp->make_reader(s, env.make_reader_permit(), pr, s->full_slice()));
                     return read_mutation_from_flat_mutation_reader(*rd).then([sstp, s, rd] (auto mutation) {
@@ -401,9 +401,9 @@ SEASTAR_TEST_CASE(datafile_generation_38) {
         m.set_clustered_cell(c_key, cl3, make_atomic_cell(bytes_type, bytes_type->decompose(data_value(to_bytes("cl3")))));
         mtp->apply(std::move(m));
 
-        auto sst = env.make_sstable(s, tmpdir_path, generation_type{38}, sstables::get_highest_sstable_version(), big);
+        auto sst = env.make_sstable(s, tmpdir_path, generation::type{38}, sstables::get_highest_sstable_version(), big);
         return write_memtable_to_sstable_for_test(*mtp, sst).then([&env, s, tmpdir_path] {
-            return env.reusable_sst(s, tmpdir_path, generation_type{38}).then([&env, s] (auto sstp) {
+            return env.reusable_sst(s, tmpdir_path, generation::type{38}).then([&env, s] (auto sstp) {
                 return do_with(dht::partition_range::make_singular(make_dkey(s, "key1")), [&env, sstp, s] (auto& pr) {
                     auto rd = make_lw_shared<flat_mutation_reader_v2>(sstp->make_reader(s, env.make_reader_permit(), pr, s->full_slice()));
                     return read_mutation_from_flat_mutation_reader(*rd).then([sstp, s, rd] (auto mutation) {
@@ -439,9 +439,9 @@ SEASTAR_TEST_CASE(datafile_generation_39) {
         m.set_clustered_cell(c_key, cl2, make_atomic_cell(bytes_type, bytes_type->decompose(data_value(to_bytes("cl2")))));
         mtp->apply(std::move(m));
 
-        auto sst = env.make_sstable(s, tmpdir_path, generation_type{39}, sstables::get_highest_sstable_version(), big);
+        auto sst = env.make_sstable(s, tmpdir_path, generation::type{39}, sstables::get_highest_sstable_version(), big);
         return write_memtable_to_sstable_for_test(*mtp, sst).then([&env, s, tmpdir_path] {
-            return env.reusable_sst(s, tmpdir_path, generation_type{39}).then([&env, s] (auto sstp) {
+            return env.reusable_sst(s, tmpdir_path, generation::type{39}).then([&env, s] (auto sstp) {
                 return do_with(dht::partition_range::make_singular(make_dkey(s, "key1")), [&env, sstp, s] (auto& pr) {
                     auto rd = make_lw_shared<flat_mutation_reader_v2>(sstp->make_reader(s, env.make_reader_permit(), pr, s->full_slice()));
                     return read_mutation_from_flat_mutation_reader(*rd).then([sstp, s, rd] (auto mutation) {
@@ -474,9 +474,9 @@ SEASTAR_TEST_CASE(datafile_generation_41) {
         m.partition().apply_delete(*s, std::move(c_key), tomb);
         mt->apply(std::move(m));
 
-        auto sst = env.make_sstable(s, tmpdir_path, generation_type{41}, sstables::get_highest_sstable_version(), big);
+        auto sst = env.make_sstable(s, tmpdir_path, generation::type{41}, sstables::get_highest_sstable_version(), big);
         return write_memtable_to_sstable_for_test(*mt, sst).then([&env, s, tomb, tmpdir_path] {
-            return env.reusable_sst(s, tmpdir_path, generation_type{41}).then([&env, s, tomb] (auto sstp) mutable {
+            return env.reusable_sst(s, tmpdir_path, generation::type{41}).then([&env, s, tomb] (auto sstp) mutable {
                 return do_with(dht::partition_range::make_singular(make_dkey(s, "key1")), [&env, sstp, s, tomb] (auto& pr) {
                     auto rd = make_lw_shared<flat_mutation_reader_v2>(sstp->make_reader(s, env.make_reader_permit(), pr, s->full_slice()));
                     return read_mutation_from_flat_mutation_reader(*rd).then([sstp, s, tomb, rd] (auto mutation) {
@@ -509,9 +509,9 @@ SEASTAR_TEST_CASE(datafile_generation_47) {
         m.set_clustered_cell(c_key, r1_col, make_atomic_cell(utf8_type, bytes(512*1024, 'a')));
         mt->apply(std::move(m));
 
-        auto sst = env.make_sstable(s, tmpdir_path, generation_type{47}, sstables::get_highest_sstable_version(), big);
+        auto sst = env.make_sstable(s, tmpdir_path, generation::type{47}, sstables::get_highest_sstable_version(), big);
         return write_memtable_to_sstable_for_test(*mt, sst).then([&env, s, tmpdir_path] {
-            return env.reusable_sst(s, tmpdir_path, generation_type{47}).then([&env, s] (auto sstp) mutable {
+            return env.reusable_sst(s, tmpdir_path, generation::type{47}).then([&env, s] (auto sstp) mutable {
                 auto reader = make_lw_shared<flat_mutation_reader_v2>(sstable_reader_v2(sstp, s, env.make_reader_permit()));
                 return repeat([reader] {
                     return (*reader)().then([] (mutation_fragment_v2_opt m) {
@@ -568,10 +568,10 @@ SEASTAR_TEST_CASE(test_counter_write) {
 
             mt->apply(m);
 
-            auto sst = env.make_sstable(s, tmpdir_path, generation_type{900}, sstables::get_highest_sstable_version(), big);
+            auto sst = env.make_sstable(s, tmpdir_path, generation::type{900}, sstables::get_highest_sstable_version(), big);
             write_memtable_to_sstable_for_test(*mt, sst).get();
 
-            auto sstp = env.reusable_sst(s, tmpdir_path, generation_type{900}).get0();
+            auto sstp = env.reusable_sst(s, tmpdir_path, generation::type{900}).get0();
             assert_that(sstable_reader_v2(sstp, s, env.make_reader_permit()))
                 .produces(m)
                 .produces_end_of_stream();
@@ -579,7 +579,7 @@ SEASTAR_TEST_CASE(test_counter_write) {
     });
 }
 
-static shared_sstable sstable_for_overlapping_test(test_env& env, const schema_ptr& schema, generation_type gen, sstring first_key, sstring last_key, uint32_t level = 0) {
+static shared_sstable sstable_for_overlapping_test(test_env& env, const schema_ptr& schema, generation::type gen, sstring first_key, sstring last_key, uint32_t level = 0) {
     auto sst = env.make_sstable(schema, "", gen, la, big);
     sstables::test(sst).set_values_for_leveled_strategy(0, level, 0, std::move(first_key), std::move(last_key));
     return sst;
@@ -894,7 +894,7 @@ SEASTAR_TEST_CASE(test_counter_read) {
             auto node1 = counter_id(utils::UUID("8379ab99-4507-4ab1-805d-ac85a863092b"));
             auto node2 = counter_id(utils::UUID("b8a6c3f3-e222-433f-9ce9-de56a8466e07"));
 
-            auto sst = env.make_sstable(s, get_test_dir("counter_test", s), generation_type{5}, version, big);
+            auto sst = env.make_sstable(s, get_test_dir("counter_test", s), generation::type{5}, version, big);
             sst->load().get();
             auto reader = sstable_reader_v2(sst, s, env.make_reader_permit());
             auto close_reader = deferred_close(reader);
@@ -974,9 +974,9 @@ SEASTAR_TEST_CASE(test_sstable_max_local_deletion_time) {
                                          make_atomic_cell(utf8_type, bytes("a"), 3600 + i, last_expiry));
                     mt->apply(std::move(m));
                 }
-                auto sst = env.make_sstable(s, tmpdir_path, generation_type{53}, version, big);
+                auto sst = env.make_sstable(s, tmpdir_path, generation::type{53}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                auto sstp = env.reusable_sst(s, tmpdir_path, generation_type{53}, version).get0();
+                auto sstp = env.reusable_sst(s, tmpdir_path, generation::type{53}, version).get0();
                 BOOST_REQUIRE(last_expiry == sstp->get_stats_metadata().max_local_deletion_time);
             }
         });
@@ -1250,9 +1250,9 @@ SEASTAR_TEST_CASE(sstable_tombstone_metadata_check) {
                 mutation m(s, key);
                 m.set_clustered_cell(c_key, r1_col, make_atomic_cell(int32_type, int32_type->decompose(1)));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{3}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{3}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{3}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{3}, version).get0();
                 BOOST_REQUIRE(!sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 check_min_max_column_names(sst, {"c1"}, {"c1"});
             }
@@ -1270,9 +1270,9 @@ SEASTAR_TEST_CASE(sstable_tombstone_metadata_check) {
                 m2.set_clustered_cell(c_key, r1_col, make_atomic_cell(int32_type, int32_type->decompose(1)));
                 mt->apply(std::move(m2));
 
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{4}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{4}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{4}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{4}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 check_min_max_column_names(sst, {"c1"}, {"c1"});
             }
@@ -1283,9 +1283,9 @@ SEASTAR_TEST_CASE(sstable_tombstone_metadata_check) {
                 tombstone tomb(api::new_timestamp(), gc_clock::now());
                 m.partition().apply(tomb);
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{5}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{5}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{5}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{5}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 check_min_max_column_names(sst, {}, {});
             }
@@ -1298,9 +1298,9 @@ SEASTAR_TEST_CASE(sstable_tombstone_metadata_check) {
                 "a")), clustering_key_prefix::from_single_value(*s, bytes("a")), tomb);
                 m.partition().apply_delete(*s, std::move(rt));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{6}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{6}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{6}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{6}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 if (version >= sstable_version_types::mc) {
                     check_min_max_column_names(sst, {"a"}, {"a"});
@@ -1318,9 +1318,9 @@ SEASTAR_TEST_CASE(sstable_tombstone_metadata_check) {
                         tomb);
                 m.partition().apply_delete(*s, std::move(rt));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{7}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{7}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{7}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{7}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 if (version >= sstable_version_types::mc) {
                     check_min_max_column_names(sst, {"a"}, {"c1"});
@@ -1338,9 +1338,9 @@ SEASTAR_TEST_CASE(sstable_tombstone_metadata_check) {
                         tomb);
                 m.partition().apply_delete(*s, std::move(rt));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{8}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{8}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{8}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{8}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 if (version >= sstable_version_types::mc) {
                     check_min_max_column_names(sst, {"c"}, {"d"});
@@ -1358,9 +1358,9 @@ SEASTAR_TEST_CASE(sstable_tombstone_metadata_check) {
                         tomb);
                 m.partition().apply_delete(*s, std::move(rt));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{9}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{9}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{9}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{9}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 if (version >= sstable_version_types::mc) {
                     check_min_max_column_names(sst, {"c1"}, {"z"});
@@ -1379,9 +1379,9 @@ SEASTAR_TEST_CASE(sstable_tombstone_metadata_check) {
                             tomb);
                     m.partition().apply_delete(*s, std::move(rt));
                     mt->apply(std::move(m));
-                    auto sst = env.make_sstable(s, tmp.path().string(), generation_type{10}, version, big);
+                    auto sst = env.make_sstable(s, tmp.path().string(), generation::type{10}, version, big);
                     write_memtable_to_sstable_for_test(*mt, sst).get();
-                    sst = env.reusable_sst(s, tmp.path().string(), generation_type{10}, version).get0();
+                    sst = env.reusable_sst(s, tmp.path().string(), generation::type{10}, version).get0();
                     BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                     check_min_max_column_names(sst, {}, {"z"});
                 }
@@ -1397,9 +1397,9 @@ SEASTAR_TEST_CASE(sstable_tombstone_metadata_check) {
                             tomb);
                     m.partition().apply_delete(*s, std::move(rt));
                     mt->apply(std::move(m));
-                    auto sst = env.make_sstable(s, tmp.path().string(), generation_type{11}, version, big);
+                    auto sst = env.make_sstable(s, tmp.path().string(), generation::type{11}, version, big);
                     write_memtable_to_sstable_for_test(*mt, sst).get();
-                    sst = env.reusable_sst(s, tmp.path().string(), generation_type{11}, version).get0();
+                    sst = env.reusable_sst(s, tmp.path().string(), generation::type{11}, version).get0();
                     BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                     check_min_max_column_names(sst, {"a"}, {});
                 }
@@ -1411,9 +1411,9 @@ SEASTAR_TEST_CASE(sstable_tombstone_metadata_check) {
                     tombstone tomb(api::new_timestamp(), gc_clock::now());
                     m.partition().apply_delete(*s, clustering_key_prefix::make_empty(), tomb);
                     mt->apply(std::move(m));
-                    auto sst = env.make_sstable(s, tmp.path().string(), generation_type{12}, version, big);
+                    auto sst = env.make_sstable(s, tmp.path().string(), generation::type{12}, version, big);
                     write_memtable_to_sstable_for_test(*mt, sst).get();
-                    sst = env.reusable_sst(s, tmp.path().string(), generation_type{12}, version).get0();
+                    sst = env.reusable_sst(s, tmp.path().string(), generation::type{12}, version).get0();
                     BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                     check_min_max_column_names(sst, {}, {});
                 }
@@ -1468,9 +1468,9 @@ SEASTAR_TEST_CASE(sstable_composite_tombstone_metadata_check) {
                 mutation m(s, key);
                 m.set_clustered_cell(c_key, r1_col, make_atomic_cell(int32_type, int32_type->decompose(1)));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{3}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{3}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{3}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{3}, version).get0();
                 BOOST_REQUIRE(!sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 check_min_max_column_names(sst, {"c1", "c2"}, {"c1", "c2"});
             }
@@ -1488,9 +1488,9 @@ SEASTAR_TEST_CASE(sstable_composite_tombstone_metadata_check) {
                 m2.set_clustered_cell(c_key, r1_col, make_atomic_cell(int32_type, int32_type->decompose(1)));
                 mt->apply(std::move(m2));
 
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{4}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{4}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{4}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{4}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 check_min_max_column_names(sst, {"c1", "c2"}, {"c1", "c2"});
             }
@@ -1501,9 +1501,9 @@ SEASTAR_TEST_CASE(sstable_composite_tombstone_metadata_check) {
                 tombstone tomb(api::new_timestamp(), gc_clock::now());
                 m.partition().apply(tomb);
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{5}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{5}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{5}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{5}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 check_min_max_column_names(sst, {}, {});
             }
@@ -1518,9 +1518,9 @@ SEASTAR_TEST_CASE(sstable_composite_tombstone_metadata_check) {
                         tomb);
                 m.partition().apply_delete(*s, std::move(rt));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{6}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{6}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{6}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{6}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 if (version >= sstable_version_types::mc) {
                     check_min_max_column_names(sst, {"a", "aa"}, {"z", "zz"});
@@ -1538,9 +1538,9 @@ SEASTAR_TEST_CASE(sstable_composite_tombstone_metadata_check) {
                         tomb);
                 m.partition().apply_delete(*s, std::move(rt));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{7}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{7}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{7}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{7}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 if (version >= sstable_version_types::mc) {
                     check_min_max_column_names(sst, {"a"}, {"c1", "c2"});
@@ -1558,9 +1558,9 @@ SEASTAR_TEST_CASE(sstable_composite_tombstone_metadata_check) {
                         tomb);
                 m.partition().apply_delete(*s, std::move(rt));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{8}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{8}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{8}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{8}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 if (version >= sstable_version_types::mc) {
                     check_min_max_column_names(sst, {"c1", "aa"}, {"c1", "zz"});
@@ -1578,9 +1578,9 @@ SEASTAR_TEST_CASE(sstable_composite_tombstone_metadata_check) {
                         tomb);
                 m.partition().apply_delete(*s, std::move(rt));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{9}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{9}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{9}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{9}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 if (version >= sstable_version_types::mc) {
                     check_min_max_column_names(sst, {"c1", "c2"}, {"z", "zz"});
@@ -1599,9 +1599,9 @@ SEASTAR_TEST_CASE(sstable_composite_tombstone_metadata_check) {
                             tomb);
                     m.partition().apply_delete(*s, std::move(rt));
                     mt->apply(std::move(m));
-                    auto sst = env.make_sstable(s, tmp.path().string(), generation_type{10}, version, big);
+                    auto sst = env.make_sstable(s, tmp.path().string(), generation::type{10}, version, big);
                     write_memtable_to_sstable_for_test(*mt, sst).get();
-                    sst = env.reusable_sst(s, tmp.path().string(), generation_type{10}, version).get0();
+                    sst = env.reusable_sst(s, tmp.path().string(), generation::type{10}, version).get0();
                     BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                     check_min_max_column_names(sst, {}, {"z"});
                 }
@@ -1617,9 +1617,9 @@ SEASTAR_TEST_CASE(sstable_composite_tombstone_metadata_check) {
                             tomb);
                     m.partition().apply_delete(*s, std::move(rt));
                     mt->apply(std::move(m));
-                    auto sst = env.make_sstable(s, tmp.path().string(), generation_type{11}, version, big);
+                    auto sst = env.make_sstable(s, tmp.path().string(), generation::type{11}, version, big);
                     write_memtable_to_sstable_for_test(*mt, sst).get();
-                    sst = env.reusable_sst(s, tmp.path().string(), generation_type{11}, version).get0();
+                    sst = env.reusable_sst(s, tmp.path().string(), generation::type{11}, version).get0();
                     BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                     check_min_max_column_names(sst, {"a"}, {});
                 }
@@ -1650,9 +1650,9 @@ SEASTAR_TEST_CASE(sstable_composite_reverse_tombstone_metadata_check) {
                 tombstone tomb(api::new_timestamp(), gc_clock::now());
                 m.partition().apply_delete(*s, c_key, tomb);
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{1}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{1}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{1}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{1}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 check_min_max_column_names(sst, {"c1", "c2"}, {"c1", "c2"});
             }
@@ -1662,9 +1662,9 @@ SEASTAR_TEST_CASE(sstable_composite_reverse_tombstone_metadata_check) {
                 mutation m(s, key);
                 m.set_clustered_cell(c_key, r1_col, make_dead_atomic_cell(3600));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{2}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{2}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{2}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{2}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 check_min_max_column_names(sst, {"c1", "c2"}, {"c1", "c2"});
             }
@@ -1674,9 +1674,9 @@ SEASTAR_TEST_CASE(sstable_composite_reverse_tombstone_metadata_check) {
                 mutation m(s, key);
                 m.set_clustered_cell(c_key, r1_col, make_atomic_cell(int32_type, int32_type->decompose(1)));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{3}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{3}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{3}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{3}, version).get0();
                 BOOST_REQUIRE(!sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 check_min_max_column_names(sst, {"c1", "c2"}, {"c1", "c2"});
             }
@@ -1694,9 +1694,9 @@ SEASTAR_TEST_CASE(sstable_composite_reverse_tombstone_metadata_check) {
                 m2.set_clustered_cell(c_key, r1_col, make_atomic_cell(int32_type, int32_type->decompose(1)));
                 mt->apply(std::move(m2));
 
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{4}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{4}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{4}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{4}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 check_min_max_column_names(sst, {"c1", "c2"}, {"c1", "c2"});
             }
@@ -1707,9 +1707,9 @@ SEASTAR_TEST_CASE(sstable_composite_reverse_tombstone_metadata_check) {
                 tombstone tomb(api::new_timestamp(), gc_clock::now());
                 m.partition().apply(tomb);
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{5}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{5}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{5}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{5}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 check_min_max_column_names(sst, {}, {});
             }
@@ -1724,9 +1724,9 @@ SEASTAR_TEST_CASE(sstable_composite_reverse_tombstone_metadata_check) {
                         tomb);
                 m.partition().apply_delete(*s, std::move(rt));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{6}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{6}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{6}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{6}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 if (version >= sstable_version_types::mc) {
                     check_min_max_column_names(sst, {"a", "zz"}, {"a", "aa"});
@@ -1744,9 +1744,9 @@ SEASTAR_TEST_CASE(sstable_composite_reverse_tombstone_metadata_check) {
                         tomb);
                 m.partition().apply_delete(*s, std::move(rt));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{7}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{7}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{7}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{7}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 if (version >= sstable_version_types::mc) {
                     check_min_max_column_names(sst, {"a", "zz"}, {"c1", "c2"});
@@ -1764,9 +1764,9 @@ SEASTAR_TEST_CASE(sstable_composite_reverse_tombstone_metadata_check) {
                         tomb);
                 m.partition().apply_delete(*s, std::move(rt));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{8}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{8}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{8}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{8}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 if (version >= sstable_version_types::mc) {
                     check_min_max_column_names(sst, {"c1", "zz"}, {"c1"});
@@ -1784,9 +1784,9 @@ SEASTAR_TEST_CASE(sstable_composite_reverse_tombstone_metadata_check) {
                         tomb);
                 m.partition().apply_delete(*s, std::move(rt));
                 mt->apply(std::move(m));
-                auto sst = env.make_sstable(s, tmp.path().string(), generation_type{9}, version, big);
+                auto sst = env.make_sstable(s, tmp.path().string(), generation::type{9}, version, big);
                 write_memtable_to_sstable_for_test(*mt, sst).get();
-                sst = env.reusable_sst(s, tmp.path().string(), generation_type{9}, version).get0();
+                sst = env.reusable_sst(s, tmp.path().string(), generation::type{9}, version).get0();
                 BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                 if (version >= sstable_version_types::mc) {
                     check_min_max_column_names(sst, {"c1", "zz"}, {"c1", "c2"});
@@ -1805,9 +1805,9 @@ SEASTAR_TEST_CASE(sstable_composite_reverse_tombstone_metadata_check) {
                             tomb);
                     m.partition().apply_delete(*s, std::move(rt));
                     mt->apply(std::move(m));
-                    auto sst = env.make_sstable(s, tmp.path().string(), generation_type{10}, version, big);
+                    auto sst = env.make_sstable(s, tmp.path().string(), generation::type{10}, version, big);
                     write_memtable_to_sstable_for_test(*mt, sst).get();
-                    sst = env.reusable_sst(s, tmp.path().string(), generation_type{10}, version).get0();
+                    sst = env.reusable_sst(s, tmp.path().string(), generation::type{10}, version).get0();
                     BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                     check_min_max_column_names(sst, {}, {"z"});
                 }
@@ -1823,9 +1823,9 @@ SEASTAR_TEST_CASE(sstable_composite_reverse_tombstone_metadata_check) {
                             tomb);
                     m.partition().apply_delete(*s, std::move(rt));
                     mt->apply(std::move(m));
-                    auto sst = env.make_sstable(s, tmp.path().string(), generation_type{11}, version, big);
+                    auto sst = env.make_sstable(s, tmp.path().string(), generation::type{11}, version, big);
                     write_memtable_to_sstable_for_test(*mt, sst).get();
-                    sst = env.reusable_sst(s, tmp.path().string(), generation_type{11}, version).get0();
+                    sst = env.reusable_sst(s, tmp.path().string(), generation::type{11}, version).get0();
                     BOOST_REQUIRE(sst->get_stats_metadata().estimated_tombstone_drop_time.bin.size());
                     check_min_max_column_names(sst, {"a"}, {});
                 }
@@ -2134,11 +2134,11 @@ SEASTAR_TEST_CASE(sstable_set_incremental_selector) {
 
     {
         sstable_set set = cs.make_sstable_set(s);
-        set.insert(sstable_for_overlapping_test(env, s, generation_type{1}, key_and_token_pair[0].first, key_and_token_pair[1].first, 1));
-        set.insert(sstable_for_overlapping_test(env, s, generation_type{2}, key_and_token_pair[0].first, key_and_token_pair[1].first, 1));
-        set.insert(sstable_for_overlapping_test(env, s, generation_type{3}, key_and_token_pair[3].first, key_and_token_pair[4].first, 1));
-        set.insert(sstable_for_overlapping_test(env, s, generation_type{4}, key_and_token_pair[4].first, key_and_token_pair[4].first, 1));
-        set.insert(sstable_for_overlapping_test(env, s, generation_type{5}, key_and_token_pair[4].first, key_and_token_pair[5].first, 1));
+        set.insert(sstable_for_overlapping_test(env, s, generation::type{1}, key_and_token_pair[0].first, key_and_token_pair[1].first, 1));
+        set.insert(sstable_for_overlapping_test(env, s, generation::type{2}, key_and_token_pair[0].first, key_and_token_pair[1].first, 1));
+        set.insert(sstable_for_overlapping_test(env, s, generation::type{3}, key_and_token_pair[3].first, key_and_token_pair[4].first, 1));
+        set.insert(sstable_for_overlapping_test(env, s, generation::type{4}, key_and_token_pair[4].first, key_and_token_pair[4].first, 1));
+        set.insert(sstable_for_overlapping_test(env, s, generation::type{5}, key_and_token_pair[4].first, key_and_token_pair[5].first, 1));
 
         sstable_set::incremental_selector sel = set.make_incremental_selector();
         check(sel, decorated_keys[0], {1, 2});
@@ -2153,12 +2153,12 @@ SEASTAR_TEST_CASE(sstable_set_incremental_selector) {
 
     {
         sstable_set set = cs.make_sstable_set(s);
-        set.insert(sstable_for_overlapping_test(env, s, generation_type{0}, key_and_token_pair[0].first, key_and_token_pair[1].first, 0));
-        set.insert(sstable_for_overlapping_test(env, s, generation_type{1}, key_and_token_pair[0].first, key_and_token_pair[1].first, 1));
-        set.insert(sstable_for_overlapping_test(env, s, generation_type{2}, key_and_token_pair[0].first, key_and_token_pair[1].first, 1));
-        set.insert(sstable_for_overlapping_test(env, s, generation_type{3}, key_and_token_pair[3].first, key_and_token_pair[4].first, 1));
-        set.insert(sstable_for_overlapping_test(env, s, generation_type{4}, key_and_token_pair[4].first, key_and_token_pair[4].first, 1));
-        set.insert(sstable_for_overlapping_test(env, s, generation_type{5}, key_and_token_pair[4].first, key_and_token_pair[5].first, 1));
+        set.insert(sstable_for_overlapping_test(env, s, generation::type{0}, key_and_token_pair[0].first, key_and_token_pair[1].first, 0));
+        set.insert(sstable_for_overlapping_test(env, s, generation::type{1}, key_and_token_pair[0].first, key_and_token_pair[1].first, 1));
+        set.insert(sstable_for_overlapping_test(env, s, generation::type{2}, key_and_token_pair[0].first, key_and_token_pair[1].first, 1));
+        set.insert(sstable_for_overlapping_test(env, s, generation::type{3}, key_and_token_pair[3].first, key_and_token_pair[4].first, 1));
+        set.insert(sstable_for_overlapping_test(env, s, generation::type{4}, key_and_token_pair[4].first, key_and_token_pair[4].first, 1));
+        set.insert(sstable_for_overlapping_test(env, s, generation::type{5}, key_and_token_pair[4].first, key_and_token_pair[5].first, 1));
 
         sstable_set::incremental_selector sel = set.make_incremental_selector();
         check(sel, decorated_keys[0], {0, 1, 2});
@@ -2186,12 +2186,12 @@ SEASTAR_TEST_CASE(sstable_set_erase) {
         auto cs = sstables::make_compaction_strategy(sstables::compaction_strategy_type::leveled, s->compaction_strategy_options());
         sstable_set set = cs.make_sstable_set(s);
 
-        auto sst = sstable_for_overlapping_test(env, s, generation_type{0}, key_and_token_pair[0].first, key_and_token_pair[0].first, 0);
+        auto sst = sstable_for_overlapping_test(env, s, generation::type{0}, key_and_token_pair[0].first, key_and_token_pair[0].first, 0);
         set.insert(sst);
         BOOST_REQUIRE(set.all()->size() == 1);
 
-        auto unleveled_sst = sstable_for_overlapping_test(env, s, generation_type{1}, key_and_token_pair[0].first, key_and_token_pair[0].first, 0);
-        auto leveled_sst = sstable_for_overlapping_test(env, s, generation_type{2}, key_and_token_pair[0].first, key_and_token_pair[0].first, 1);
+        auto unleveled_sst = sstable_for_overlapping_test(env, s, generation::type{1}, key_and_token_pair[0].first, key_and_token_pair[0].first, 0);
+        auto leveled_sst = sstable_for_overlapping_test(env, s, generation::type{2}, key_and_token_pair[0].first, key_and_token_pair[0].first, 1);
         set.erase(unleveled_sst);
         set.erase(leveled_sst);
         BOOST_REQUIRE(set.all()->size() == 1);
@@ -2204,12 +2204,12 @@ SEASTAR_TEST_CASE(sstable_set_erase) {
 
         // triggers use-after-free, described in #4572, by operating on interval that relies on info of a destroyed sstable object.
         {
-            auto sst = sstable_for_overlapping_test(env, s, generation_type{0}, key_and_token_pair[0].first, key_and_token_pair[0].first, 1);
+            auto sst = sstable_for_overlapping_test(env, s, generation::type{0}, key_and_token_pair[0].first, key_and_token_pair[0].first, 1);
             set.insert(sst);
             BOOST_REQUIRE(set.all()->size() == 1);
         }
 
-        auto sst2 = sstable_for_overlapping_test(env, s, generation_type{0}, key_and_token_pair[0].first, key_and_token_pair[0].first, 1);
+        auto sst2 = sstable_for_overlapping_test(env, s, generation::type{0}, key_and_token_pair[0].first, key_and_token_pair[0].first, 1);
         set.insert(sst2);
         BOOST_REQUIRE(set.all()->size() == 2);
 
@@ -2220,11 +2220,11 @@ SEASTAR_TEST_CASE(sstable_set_erase) {
         auto cs = sstables::make_compaction_strategy(sstables::compaction_strategy_type::size_tiered, s->compaction_strategy_options());
         sstable_set set = cs.make_sstable_set(s);
 
-        auto sst = sstable_for_overlapping_test(env, s, generation_type{0}, key_and_token_pair[0].first, key_and_token_pair[0].first, 0);
+        auto sst = sstable_for_overlapping_test(env, s, generation::type{0}, key_and_token_pair[0].first, key_and_token_pair[0].first, 0);
         set.insert(sst);
         BOOST_REQUIRE(set.all()->size() == 1);
 
-        auto sst2 = sstable_for_overlapping_test(env, s, generation_type{1}, key_and_token_pair[0].first, key_and_token_pair[0].first, 0);
+        auto sst2 = sstable_for_overlapping_test(env, s, generation::type{1}, key_and_token_pair[0].first, key_and_token_pair[0].first, 0);
         set.erase(sst2);
         BOOST_REQUIRE(set.all()->size() == 1);
         BOOST_REQUIRE(set.all()->contains(sst));
@@ -2244,7 +2244,7 @@ SEASTAR_TEST_CASE(sstable_tombstone_histogram_test) {
 
             auto tmp = tmpdir();
             auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1), version]() mutable {
-                return env.make_sstable(s, tmp.path().string(), generation_type{(*gen)++}, version, big);
+                return env.make_sstable(s, tmp.path().string(), generation::type{(*gen)++}, version, big);
             };
 
             auto next_timestamp = [] {
@@ -2319,7 +2319,7 @@ SEASTAR_TEST_CASE(sstable_owner_shards) {
                 | boost::adaptors::transformed([&] (auto shard) { return mut(shard); }));
             auto sst_gen = [&env, s, &tmp, gen, ignore_msb] () mutable {
                 auto schema = schema_builder(s).with_sharder(1, ignore_msb).build();
-                auto sst = env.make_sstable(std::move(schema), tmp.path().string(), generation_type{(*gen)++}, sstables::get_highest_sstable_version(), big);
+                auto sst = env.make_sstable(std::move(schema), tmp.path().string(), generation::type{(*gen)++}, sstables::get_highest_sstable_version(), big);
                 return sst;
             };
             auto sst = make_sstable_containing(sst_gen, std::move(muts));
@@ -2378,7 +2378,7 @@ SEASTAR_TEST_CASE(test_summary_entry_spanning_more_keys_than_min_interval) {
 
         auto tmp = tmpdir();
         auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
-            return env.make_sstable(s, tmp.path().string(), generation_type{(*gen)++}, sstables::get_highest_sstable_version(), big);
+            return env.make_sstable(s, tmp.path().string(), generation::type{(*gen)++}, sstables::get_highest_sstable_version(), big);
         };
         auto sst = make_sstable_containing(sst_gen, mutations);
         sst = env.reusable_sst(s, tmp.path().string(), sst->generation()).get0();
@@ -2579,7 +2579,7 @@ SEASTAR_TEST_CASE(summary_rebuild_sanity) {
 
         auto tmp = tmpdir();
         auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
-            return env.make_sstable(s, tmp.path().string(), generation_type{(*gen)++}, sstables::get_highest_sstable_version(), big);
+            return env.make_sstable(s, tmp.path().string(), generation::type{(*gen)++}, sstables::get_highest_sstable_version(), big);
         };
         auto sst = make_sstable_containing(sst_gen, mutations);
 
@@ -2623,7 +2623,7 @@ SEASTAR_TEST_CASE(sstable_partition_estimation_sanity_test) {
 
         auto tmp = tmpdir();
         auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
-            return env.make_sstable(s, tmp.path().string(), generation_type{(*gen)++}, sstables::get_highest_sstable_version(), big);
+            return env.make_sstable(s, tmp.path().string(), generation::type{(*gen)++}, sstables::get_highest_sstable_version(), big);
         };
 
         {
@@ -2666,7 +2666,7 @@ SEASTAR_TEST_CASE(sstable_timestamp_metadata_correcness_with_negative) {
 
             auto tmp = tmpdir();
             auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1), version]() mutable {
-                return env.make_sstable(s, tmp.path().string(), generation_type{(*gen)++}, version, big);
+                return env.make_sstable(s, tmp.path().string(), generation::type{(*gen)++}, version, big);
             };
 
             auto make_insert = [&](partition_key key, api::timestamp_type ts) {
@@ -2798,7 +2798,7 @@ SEASTAR_TEST_CASE(test_zero_estimated_partitions) {
 
             auto mr = make_flat_mutation_reader_from_mutations_v2(ss.schema(), env.make_reader_permit(), {mut});
             sstable_writer_config cfg = env.manager().configure_writer();
-            auto sst = make_sstable_easy(env, tmp, std::move(mr), cfg, generation_type{0}, version, 0);
+            auto sst = make_sstable_easy(env, tmp, std::move(mr), cfg, generation::type{0}, version, 0);
 
             auto sst_mr = sst->as_mutation_source().make_reader_v2(s, env.make_reader_permit(), query::full_partition_range, s->full_slice());
             auto close_mr = deferred_close(sst_mr);
@@ -2838,7 +2838,7 @@ SEASTAR_TEST_CASE(test_may_have_partition_tombstones) {
             ss.add_row(mut2, ss.make_ckey(6), "val");
 
             auto sst_gen = [&env, s, &tmp, &gen, version] () {
-                return env.make_sstable(s, tmp.path().string(), generation_type{++gen}, version, big);
+                return env.make_sstable(s, tmp.path().string(), generation::type{++gen}, version, big);
             };
 
             {
@@ -2877,7 +2877,7 @@ SEASTAR_TEST_CASE(test_missing_partition_end_fragment) {
             auto mr = make_flat_mutation_reader_from_fragments(s, env.make_reader_permit(), std::move(frags));
             auto close_mr = deferred_close(mr);
 
-            auto sst = env.make_sstable(s, tmpdir_path, generation_type{0}, version, big);
+            auto sst = env.make_sstable(s, tmpdir_path, generation::type{0}, version, big);
             sstable_writer_config cfg = env.manager().configure_writer();
 
             try {
@@ -2912,14 +2912,14 @@ SEASTAR_TEST_CASE(test_sstable_origin) {
             // Test empty sstable_origin.
             auto mr = make_flat_mutation_reader_from_mutations_v2(s, env.make_reader_permit(), {mut});
             sstable_writer_config cfg = env.manager().configure_writer("");
-            auto sst = make_sstable_easy(env, tmp, std::move(mr), cfg, generation_type{gen++}, version, 0);
+            auto sst = make_sstable_easy(env, tmp, std::move(mr), cfg, generation::type{gen++}, version, 0);
             BOOST_REQUIRE_EQUAL(sst->get_origin(), "");
 
             // Test that a random sstable_origin is stored and retrieved properly.
             mr = make_flat_mutation_reader_from_mutations_v2(s, env.make_reader_permit(), {mut});
             sstring origin = fmt::format("test-{}", tests::random::get_sstring());
             cfg = env.manager().configure_writer(origin);
-            sst = make_sstable_easy(env, tmp, std::move(mr), cfg, generation_type{gen++}, version, 0);
+            sst = make_sstable_easy(env, tmp, std::move(mr), cfg, generation::type{gen++}, version, 0);
             BOOST_REQUIRE_EQUAL(sst->get_origin(), origin);
         }
 
@@ -2938,11 +2938,11 @@ SEASTAR_TEST_CASE(compound_sstable_set_basic_test) {
         lw_shared_ptr<sstables::sstable_set> compound = make_lw_shared(sstables::make_compound_sstable_set(s, {set1, set2}));
 
         auto key_and_token_pair = token_generation_for_current_shard(2);
-        set1->insert(sstable_for_overlapping_test(env, s, generation_type{1}, key_and_token_pair[0].first, key_and_token_pair[1].first, 0));
-        set2->insert(sstable_for_overlapping_test(env, s, generation_type{2}, key_and_token_pair[0].first, key_and_token_pair[1].first, 0));
-        set2->insert(sstable_for_overlapping_test(env, s, generation_type{3}, key_and_token_pair[0].first, key_and_token_pair[1].first, 0));
+        set1->insert(sstable_for_overlapping_test(env, s, generation::type{1}, key_and_token_pair[0].first, key_and_token_pair[1].first, 0));
+        set2->insert(sstable_for_overlapping_test(env, s, generation::type{2}, key_and_token_pair[0].first, key_and_token_pair[1].first, 0));
+        set2->insert(sstable_for_overlapping_test(env, s, generation::type{3}, key_and_token_pair[0].first, key_and_token_pair[1].first, 0));
 
-        BOOST_REQUIRE(boost::accumulate(*compound->all() | boost::adaptors::transformed([] (const sstables::shared_sstable& sst) { return sst->generation(); }), generation_type(0)) == generation_type{6});
+        BOOST_REQUIRE(boost::accumulate(*compound->all() | boost::adaptors::transformed([] (const sstables::shared_sstable& sst) { return sst->generation(); }), generation::type(0)) == generation::type{6});
         {
             unsigned found = 0;
             for (auto sstables = compound->all(); auto& sst : *sstables) {
@@ -2985,9 +2985,9 @@ SEASTAR_TEST_CASE(sstable_reader_with_timeout) {
             m.partition().apply_delete(*s, cp, tomb);
             mt->apply(std::move(m));
 
-            auto sst = env.make_sstable(s, tmpdir_path, generation_type{12}, sstables::get_highest_sstable_version(), big);
+            auto sst = env.make_sstable(s, tmpdir_path, generation::type{12}, sstables::get_highest_sstable_version(), big);
             write_memtable_to_sstable_for_test(*mt, sst).get();
-            auto sstp = env.reusable_sst(s, tmpdir_path, generation_type{12}).get0();
+            auto sstp = env.reusable_sst(s, tmpdir_path, generation::type{12}).get0();
             auto pr = dht::partition_range::make_singular(make_dkey(s, "key1"));
             auto timeout = db::timeout_clock::now();
             auto rd = sstp->make_reader(s, env.make_reader_permit(timeout), pr, s->full_slice());
@@ -3029,7 +3029,7 @@ SEASTAR_TEST_CASE(test_validate_checksums) {
                 auto mr = make_flat_mutation_reader_from_mutations_v2(schema, permit, muts);
                 auto close_mr = deferred_close(mr);
 
-                auto sst = env.make_sstable(sst_schema, tmpdir_path, generation_type{gen++}, version, big);
+                auto sst = env.make_sstable(sst_schema, tmpdir_path, generation::type{gen++}, version, big);
                 sstable_writer_config cfg = env.manager().configure_writer();
 
                 auto wr = sst->get_writer(*sst_schema, 1, cfg, encoding_stats{}, default_priority_class());
@@ -3112,7 +3112,7 @@ SEASTAR_TEST_CASE(test_index_fast_forwarding_after_eof) {
 
         const auto muts = tests::generate_random_mutations(random_schema, 2).get();
 
-        auto sst = env.make_sstable(schema, tmpdir_path, generation_type{0}, writable_sstable_versions.back(), big);
+        auto sst = env.make_sstable(schema, tmpdir_path, generation::type{0}, writable_sstable_versions.back(), big);
         {
             auto mr = make_flat_mutation_reader_from_mutations_v2(schema, permit, muts);
             auto close_mr = deferred_close(mr);

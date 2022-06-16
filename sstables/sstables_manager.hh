@@ -72,7 +72,7 @@ public:
     // Constructs a shared sstable
     shared_sstable make_sstable(schema_ptr schema,
             sstring dir,
-            generation_type generation,
+            generation::type generation,
             sstable_version_types v,
             sstable_format_types f,
             gc_clock::time_point now = gc_clock::now(),

@@ -51,7 +51,7 @@ class sstable_assertions final {
     test_env& _env;
     shared_sstable _sst;
 public:
-    sstable_assertions(test_env& env, schema_ptr schema, const sstring& path, sstable_version_types version = sstable_version_types::mc, generation_type generation = generation_type{1})
+    sstable_assertions(test_env& env, schema_ptr schema, const sstring& path, sstable_version_types version = sstable_version_types::mc, generation::type generation = generation::type{1})
         : _env(env)
         , _sst(_env.make_sstable(std::move(schema),
                             path,
@@ -3006,14 +3006,14 @@ SEASTAR_TEST_CASE(test_uncompressed_collections_read) {
   });
 }
 
-static sstables::shared_sstable open_sstable(test_env& env, schema_ptr schema, sstring dir, generation_type generation) {
+static sstables::shared_sstable open_sstable(test_env& env, schema_ptr schema, sstring dir, generation::type generation) {
     return env.reusable_sst(std::move(schema), dir, generation, sstables::sstable::version_types::mc).get0();
 }
 
 static std::vector<sstables::shared_sstable> open_sstables(test_env& env, schema_ptr s, sstring dir, std::vector<generation::value_type> generations) {
     std::vector<sstables::shared_sstable> result;
     for(auto generation: generations) {
-        result.push_back(open_sstable(env, s, dir, generation_type{generation}));
+        result.push_back(open_sstable(env, s, dir, generation::type{generation}));
     }
     return result;
 }
@@ -3029,7 +3029,7 @@ static flat_mutation_reader_v2 compacted_sstable_reader(test_env& env, schema_pt
 
     tmpdir tmp;
     auto sstables = open_sstables(env, s, format("test/resource/sstables/3.x/uncompressed/{}", table_name), generations);
-    auto new_generation = generation_type{generations.back() + 1};
+    auto new_generation = generation::type{generations.back() + 1};
 
     auto desc = sstables::compaction_descriptor(std::move(sstables), default_priority_class());
     desc.creator = [s, &tmp, &env, new_generation] (shard_id dummy) {
@@ -3211,16 +3211,16 @@ static void compare_sstables(const std::filesystem::path& result_path, sstring t
                            component_type::Filter}) {
         auto orig_filename =
                 sstable::filename(get_write_test_path(table_name),
-                                  "ks", table_name, sstables::sstable_version_types::mc, generation_type{1}, big, file_type);
+                                  "ks", table_name, sstables::sstable_version_types::mc, generation::type{1}, big, file_type);
         auto result_filename =
-                sstable::filename(result_path.string(), "ks", table_name, version, generation_type{1}, big, file_type);
+                sstable::filename(result_path.string(), "ks", table_name, version, generation::type{1}, big, file_type);
         compare_files(orig_filename, result_filename);
     }
 }
 
 static tmpdir write_sstables(test_env& env, schema_ptr s, lw_shared_ptr<replica::memtable> mt1, lw_shared_ptr<replica::memtable> mt2, sstable_version_types version) {
     tmpdir tmp;
-    auto sst = env.make_sstable(s, tmp.path().string(), generation_type{1}, version, sstable::format_types::big, 4096);
+    auto sst = env.make_sstable(s, tmp.path().string(), generation::type{1}, version, sstable::format_types::big, 4096);
 
     sst->write_components(make_combined_reader(s,
         env.make_reader_permit(),
@@ -3240,7 +3240,7 @@ static tmpdir write_and_compare_sstables(test_env& env, schema_ptr s, lw_shared_
 
 static tmpdir write_sstables(test_env& env, schema_ptr s, lw_shared_ptr<replica::memtable> mt, sstable_version_types version) {
     tmpdir tmp;
-    auto sst = env.make_sstable(s, tmp.path().string(), generation_type{1}, version, sstable::format_types::big, 4096);
+    auto sst = env.make_sstable(s, tmp.path().string(), generation::type{1}, version, sstable::format_types::big, 4096);
     write_memtable_to_sstable_for_test(*mt, sst).get();
     return tmp;
 }
@@ -3252,7 +3252,7 @@ static tmpdir write_and_compare_sstables(test_env& env, schema_ptr s, lw_shared_
 }
 
 static sstable_assertions validate_read(test_env& env, schema_ptr s, const std::filesystem::path& path, std::vector<mutation> mutations, sstable_version_types version) {
-    sstable_assertions sst(env, s, path.string(), version, generation_type{1});
+    sstable_assertions sst(env, s, path.string(), version, generation::type{1});
     sst.load();
 
     auto assertions = assert_that(sst.make_reader());
@@ -3304,7 +3304,7 @@ static constexpr api::timestamp_type write_timestamp = 1525385507816568;
 static constexpr gc_clock::time_point write_time_point = gc_clock::time_point{} + gc_clock::duration{1525385507};
 
 static void do_validate_stats_metadata(schema_ptr s, sstable_assertions& written_sst, sstring table_name) {
-    auto orig_sst = written_sst.get_env().reusable_sst(s, get_write_test_path(table_name), generation_type{1}, sstable_version_types::mc).get0();
+    auto orig_sst = written_sst.get_env().reusable_sst(s, get_write_test_path(table_name), generation::type{1}, sstable_version_types::mc).get0();
 
     const auto& orig_stats = orig_sst->get_stats_metadata();
     const auto& written_stats = written_sst.get_stats_metadata();
@@ -4581,7 +4581,7 @@ static std::unique_ptr<index_reader> get_index_reader(shared_sstable sst, reader
                                           tracing::trace_state_ptr(), use_caching::yes);
 }
 
-shared_sstable make_test_sstable(test_env& env, schema_ptr schema, const sstring& table_name, generation_type gen = generation_type{1}) {
+shared_sstable make_test_sstable(test_env& env, schema_ptr schema, const sstring& table_name, generation::type gen = generation::type{1}) {
     return env.reusable_sst(schema, get_read_index_test_path(table_name), gen, sstable_version_types::mc).get0();
 }
 
@@ -5115,7 +5115,7 @@ SEASTAR_TEST_CASE(test_sstable_reader_on_unknown_column) {
         tmpdir dir;
         sstable_writer_config cfg = env.manager().configure_writer();
         cfg.promoted_index_block_size = index_block_size;
-        auto sst = make_sstable_easy(env, dir.path(), mt, cfg, generation_type{1}, version);
+        auto sst = make_sstable_easy(env, dir.path(), mt, cfg, generation::type{1}, version);
 
         BOOST_REQUIRE_EXCEPTION(
             assert_that(sst->make_reader(read_schema, env.make_reader_permit(), query::full_partition_range, read_schema->full_slice()))
@@ -5194,7 +5194,7 @@ static void test_sstable_write_large_row_f(schema_ptr s, reader_permit permit, r
     auto stop_manager = defer([&] { manager.close().get(); });
     tmpdir dir;
     auto sst = manager.make_sstable(
-            s, dir.path().string(), generation_type{1}, version, sstables::sstable::format_types::big);
+            s, dir.path().string(), generation::type{1}, version, sstables::sstable::format_types::big);
 
     // The test provides thresholds values for the large row handler. Whether the handler gets
     // trigger depends on the size of rows after they are written in the MC format and that size
@@ -5253,7 +5253,7 @@ static void test_sstable_log_too_many_rows_f(int rows, uint64_t threshold, bool 
     sstables_manager manager(handler, test_db_config, test_feature_service, tracker);
     auto close_manager = defer([&] { manager.close().get(); });
     tmpdir dir;
-    auto sst = manager.make_sstable(sc, dir.path().string(), generation_type{1}, version, sstables::sstable::format_types::big);
+    auto sst = manager.make_sstable(sc, dir.path().string(), generation::type{1}, version, sstables::sstable::format_types::big);
     sst->write_components(mt->make_flat_reader(sc, semaphore.make_permit()), 1, sc, manager.configure_writer("test"), encoding_stats{}).get();
 
     BOOST_REQUIRE_EQUAL(logged, expected);

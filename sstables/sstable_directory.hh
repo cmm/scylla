@@ -41,7 +41,7 @@ public:
 
     using sstable_object_from_existing_fn =
         noncopyable_function<sstables::shared_sstable(std::filesystem::path,
-                                                      sstables::generation_type,
+                                                      sstables::generation::type,
                                                       sstables::sstable_version_types,
                                                       sstables::sstable_format_types)>;
 
@@ -49,9 +49,9 @@ public:
     // of elements.
     using sstable_info_vector = utils::chunked_vector<sstables::foreign_sstable_open_info>;
 private:
-    using scan_multimap = std::unordered_multimap<generation_type, std::filesystem::path>;
+    using scan_multimap = std::unordered_multimap<generation::type, std::filesystem::path>;
     using scan_descriptors = utils::chunked_vector<sstables::entry_descriptor>;
-    using scan_descriptors_map = std::unordered_map<generation_type, sstables::entry_descriptor>;
+    using scan_descriptors_map = std::unordered_map<generation::type, sstables::entry_descriptor>;
 
     struct scan_state {
         scan_multimap generations_found;
@@ -85,7 +85,7 @@ private:
     // How to create an SSTable object from an existing SSTable file (respecting generation, etc)
     sstable_object_from_existing_fn _sstable_object_from_existing_sstable;
 
-    generation_type _max_generation_seen = generation_type{0};
+    generation::type _max_generation_seen = generation::type{0};
     sstables::sstable_version_types _max_version_seen = sstables::sstable_version_types::ka;
 
     // SSTables that are unshared and belong to this shard. They are already stored as an
@@ -137,7 +137,7 @@ public:
     future<> move_foreign_sstables(sharded<sstable_directory>& source_directory);
 
     // returns what is the highest generation seen in this directory.
-    generation_type highest_generation_seen() const;
+    generation::type highest_generation_seen() const;
 
     // returns what is the highest version seen in this directory.
     sstables::sstable_version_types highest_version_seen() const;

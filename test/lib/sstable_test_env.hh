@@ -44,19 +44,19 @@ public:
         });
     }
 
-    shared_sstable make_sstable(schema_ptr schema, sstring dir, generation_type generation,
+    shared_sstable make_sstable(schema_ptr schema, sstring dir, generation::type generation,
             sstable::version_types v = sstables::get_highest_sstable_version(), sstable::format_types f = sstable::format_types::big,
             size_t buffer_size = default_sstable_buffer_size, gc_clock::time_point now = gc_clock::now()) {
         return _mgr->make_sstable(std::move(schema), dir, generation, v, f, now, default_io_error_handler_gen(), buffer_size);
     }
 
     struct sst_not_found : public std::runtime_error {
-        sst_not_found(const sstring& dir, generation_type generation)
+        sst_not_found(const sstring& dir, generation::type generation)
             : std::runtime_error(format("no versions of sstable generation {} found in {}", generation, dir))
         {}
     };
 
-    future<shared_sstable> reusable_sst(schema_ptr schema, sstring dir, generation_type generation,
+    future<shared_sstable> reusable_sst(schema_ptr schema, sstring dir, generation::type generation,
             sstable::version_types version, sstable::format_types f = sstable::format_types::big) {
         auto sst = make_sstable(std::move(schema), dir, generation, version, f);
         return sst->load().then([sst = std::move(sst)] {
@@ -65,7 +65,7 @@ public:
     }
 
     // looks up the sstable in the given dir
-    future<shared_sstable> reusable_sst(schema_ptr schema, sstring dir, generation_type generation);
+    future<shared_sstable> reusable_sst(schema_ptr schema, sstring dir, generation::type generation);
 
     test_env_sstables_manager& manager() { return *_mgr; }
     reader_concurrency_semaphore& semaphore() { return *_semaphore; }
@@ -76,7 +76,7 @@ public:
         return _semaphore->make_tracking_only_permit(nullptr, "test", timeout);
     }
 
-    future<> working_sst(schema_ptr schema, sstring dir, generation_type generation) {
+    future<> working_sst(schema_ptr schema, sstring dir, generation::type generation) {
         return reusable_sst(std::move(schema), dir, generation).then([] (auto ptr) { return make_ready_future<>(); });
     }
 
