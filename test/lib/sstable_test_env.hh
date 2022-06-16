@@ -76,7 +76,7 @@ public:
         return _semaphore->make_tracking_only_permit(nullptr, "test", timeout);
     }
 
-    future<> working_sst(schema_ptr schema, sstring dir, unsigned long generation) {
+    future<> working_sst(schema_ptr schema, sstring dir, generation_type generation) {
         return reusable_sst(std::move(schema), dir, generation).then([] (auto ptr) { return make_ready_future<>(); });
     }
 

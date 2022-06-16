@@ -685,7 +685,7 @@ struct sst_factory {
     {}
 
     sstables::shared_sstable operator()() {
-        auto sst = env.make_sstable(s, path, gen);
+        auto sst = env.make_sstable(s, path, generation_type{gen});
         sst->set_sstable_level(level);
 
         return sst;
@@ -1014,7 +1014,7 @@ sstables::shared_sstable create_sstable(sstables::test_env& env, simple_schema& 
     }
 
     return make_sstable_containing([&] {
-            return env.make_sstable(sschema.schema(), path, 0);
+            return env.make_sstable(sschema.schema(), path, generation_type{0});
         }
         , mutations);
 }
@@ -1024,7 +1024,7 @@ sstables::shared_sstable create_sstable(sstables::test_env& env, schema_ptr s, s
     static thread_local auto tmp = tmpdir();
     static int gen = 0;
     return make_sstable_containing([&] {
-        return env.make_sstable(s, tmp.path().string(), gen++);
+        return env.make_sstable(s, tmp.path().string(), generation_type{gen++});
     }, mutations);
 }
 
@@ -3900,11 +3900,11 @@ static future<> do_test_clustering_order_merger_sstable_set(bool reversed) {
         auto tmp = tmpdir();
         time_series_sstable_set sst_set(table_schema);
         mutation merged(table_schema, g._pk);
-        std::unordered_set<sstables::generation_type> included_gens;
-        int64_t gen = 0;
+        std::unordered_set<generation_type> included_gens;
+        generation_type::value_type gen = 0;
         for (auto& mb: scenario.readers_data) {
             auto sst_factory = [table_schema, &env, &tmp, gen = ++gen] () {
-                return env.make_sstable(std::move(table_schema), tmp.path().string(), gen,
+                return env.make_sstable(std::move(table_schema), tmp.path().string(), generation_type{gen},
                     sstables::sstable::version_types::md, sstables::sstable::format_types::big);
             };
 
@@ -3921,7 +3921,7 @@ static future<> do_test_clustering_order_merger_sstable_set(bool reversed) {
             }
 
             if (dist(engine)) {
-                included_gens.insert(gen);
+                included_gens.insert(generation_type{gen});
                 if (mb.m) {
                     merged += *mb.m;
                 }

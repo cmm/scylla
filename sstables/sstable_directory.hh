@@ -85,7 +85,7 @@ private:
     // How to create an SSTable object from an existing SSTable file (respecting generation, etc)
     sstable_object_from_existing_fn _sstable_object_from_existing_sstable;
 
-    generation_type _max_generation_seen = 0;
+    generation_type _max_generation_seen = generation_type{0};
     sstables::sstable_version_types _max_version_seen = sstables::sstable_version_types::ka;
 
     // SSTables that are unshared and belong to this shard. They are already stored as an

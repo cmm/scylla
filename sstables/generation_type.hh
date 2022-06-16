@@ -23,7 +23,7 @@ private:
     value_type _value;
 public:
     generation_type() noexcept = default;
-    generation_type(value_type value) noexcept: _value(value) {}
+    explicit generation_type(value_type value) noexcept: _value(value) {}
     value_type value() const noexcept { return _value; }
     bool operator<(const generation_type& other) const noexcept { return _value < other._value; }
     bool operator>(const generation_type& other) const noexcept { return _value > other._value; }
@@ -32,12 +32,12 @@ public:
     bool operator==(const generation_type& other) const noexcept { return _value == other._value; }
     bool operator!=(const generation_type& other) const noexcept { return _value != other._value; }
     std::strong_ordering operator<=>(const generation_type& other) const noexcept { return _value <=> other._value; }
-    generation_type operator++(int) { return _value++; }
+    generation_type operator++(int) { return generation_type{_value++}; }
     generation_type& operator++() { ++_value; return *this; }
-    generation_type operator+(generation_type other) const { return _value + other._value; }
-    generation_type operator*(generation_type other) const { return _value * other._value; }
-    generation_type operator/(generation_type other) const { return _value / other._value; }
-    generation_type operator%(generation_type other) const { return _value % other._value; }
+    generation_type operator+(generation_type other) const { return generation_type{_value + other._value}; }
+    generation_type operator*(generation_type other) const { return generation_type{_value * other._value}; }
+    generation_type operator/(generation_type other) const { return generation_type{_value / other._value}; }
+    generation_type operator%(generation_type other) const { return generation_type{_value % other._value}; }
 };
 }
 
@@ -65,9 +65,9 @@ template <> struct numeric_limits<sstables::generation_type> : public numeric_li
 private:
     using value_limits = numeric_limits<sstables::generation_type::value_type>;
 public:
-    static sstables::generation_type min() noexcept { return value_limits::min(); }
-    static sstables::generation_type max() noexcept { return value_limits::max(); }
-    static sstables::generation_type lowest() noexcept { return value_limits::lowest(); }
+    static sstables::generation_type min() noexcept { return sstables::generation_type{value_limits::min()}; }
+    static sstables::generation_type max() noexcept { return sstables::generation_type{value_limits::max()}; }
+    static sstables::generation_type lowest() noexcept { return sstables::generation_type{value_limits::lowest()}; }
 };
 
 template <> struct hash<sstables::generation_type> {
