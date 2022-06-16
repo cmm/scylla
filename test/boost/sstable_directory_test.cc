@@ -185,7 +185,7 @@ SEASTAR_TEST_CASE(sstable_directory_test_table_simple_empty_directory_scan) {
 SEASTAR_TEST_CASE(sstable_directory_test_table_scan_incomplete_sstables) {
   return sstables::test_env::do_with_async([] (test_env& env) {
     auto dir = tmpdir();
-    auto sst = make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env), dir.path(), generation::type{1}));
+    auto sst = make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env), dir.path(), generation::from_value(1)));
 
     // Now there is one sstable to the upload directory, but it is incomplete and one component is missing.
     // We should fail validation and leave the directory untouched
@@ -233,7 +233,7 @@ SEASTAR_TEST_CASE(sstable_directory_test_table_scan_invalid_file) {
 SEASTAR_TEST_CASE(sstable_directory_test_table_temporary_toc) {
   return sstables::test_env::do_with_async([] (test_env& env) {
     auto dir = tmpdir();
-    auto sst = make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env), dir.path(), generation::type{1}));
+    auto sst = make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env), dir.path(), generation::from_value(1)));
     rename_file(sst->filename(sstables::component_type::TOC), sst->filename(sstables::component_type::TemporaryTOC)).get();
 
    with_sstable_directory(dir.path(), 1,
@@ -253,7 +253,7 @@ SEASTAR_TEST_CASE(sstable_directory_test_table_temporary_toc) {
 SEASTAR_TEST_CASE(sstable_directory_test_table_extra_temporary_toc) {
     return sstables::test_env::do_with_async([] (test_env& env) {
         auto dir = tmpdir();
-        auto sst = make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env), dir.path(), generation::type{1}));
+        auto sst = make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env), dir.path(), generation::from_value(1)));
         link_file(sst->filename(sstables::component_type::TOC), sst->filename(sstables::component_type::TemporaryTOC)).get();
 
         with_sstable_directory(dir.path(), 1,
@@ -274,7 +274,7 @@ SEASTAR_TEST_CASE(sstable_directory_test_table_missing_toc) {
   return sstables::test_env::do_with_async([] (test_env& env) {
     auto dir = tmpdir();
 
-    auto sst = make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env), dir.path(), generation::type{1}));
+    auto sst = make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env), dir.path(), generation::from_value(1)));
     remove_file(sst->filename(sstables::component_type::TOC)).get();
 
    with_sstable_directory(dir.path(), 1,
@@ -308,7 +308,7 @@ SEASTAR_THREAD_TEST_CASE(sstable_directory_test_temporary_statistics) {
   sstables::test_env::do_with_sharded_async([] (sharded<test_env>& env) {
     auto dir = tmpdir();
 
-    auto sst = make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env.local()), dir.path(), generation::type{1}));
+    auto sst = make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env.local()), dir.path(), generation::from_value(1)));
     auto tempstr = sst->filename(dir.path().native(), component_type::TemporaryStatistics);
     auto f = open_file_dma(tempstr, open_flags::rw | open_flags::create | open_flags::truncate).get0();
     f.close().get();
@@ -348,8 +348,8 @@ SEASTAR_THREAD_TEST_CASE(sstable_directory_test_temporary_statistics) {
 SEASTAR_THREAD_TEST_CASE(sstable_directory_test_generation_sanity) {
   sstables::test_env::do_with_sharded_async([] (sharded<test_env>& env) {
     auto dir = tmpdir();
-    make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env.local()), dir.path(), generation::type{3333}));
-    auto sst = make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env.local()), dir.path(), generation::type{6666}));
+    make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env.local()), dir.path(), generation::from_value(3333)));
+    auto sst = make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env.local()), dir.path(), generation::from_value(6666)));
     rename_file(sst->filename(sstables::component_type::TOC), sst->filename(sstables::component_type::TemporaryTOC)).get();
 
    with_sstable_directory(dir.path(), 1,
@@ -393,7 +393,7 @@ SEASTAR_THREAD_TEST_CASE(sstable_directory_unshared_sstables_sanity_matched_gene
             // this is why it is annoying for the internal functions in the test infrastructure to
             // assume threaded execution
             return seastar::async([dir, i, &env] {
-                make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env), dir, generation::type{i}));
+                make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env), dir, generation::from_value(i)));
             });
         }).get();
     }
@@ -421,7 +421,7 @@ SEASTAR_THREAD_TEST_CASE(sstable_directory_unshared_sstables_sanity_unmatched_ge
             // this is why it is annoying for the internal functions in the test infrastructure to
             // assume threaded execution
             return seastar::async([dir, i, &env] {
-                make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env), dir, generation::type{i + 1}));
+                make_sstable_for_this_shard(std::bind(new_sstable, std::ref(env), dir, generation::from_value(i + 1)));
             });
         }).get();
     }
@@ -603,7 +603,7 @@ SEASTAR_TEST_CASE(sstable_directory_shared_sstables_reshard_distributes_well_eve
         unsigned num_sstables = 10 * smp::count;
         auto generation = 0;
         for (unsigned nr = 0; nr < num_sstables; ++nr) {
-            make_sstable_for_all_shards(e.db().local(), cf, upload_path.native(), generation::type{generation++ * smp::count});
+            make_sstable_for_all_shards(e.db().local(), cf, upload_path.native(), generation::from_value(generation++ * smp::count));
         }
 
       with_sstable_directory(upload_path, 1,
@@ -652,7 +652,7 @@ SEASTAR_TEST_CASE(sstable_directory_shared_sstables_reshard_respect_max_threshol
         unsigned num_sstables = (cf.schema()->max_compaction_threshold() + 1) * smp::count;
         auto generation = 0;
         for (unsigned nr = 0; nr < num_sstables; ++nr) {
-            make_sstable_for_all_shards(e.db().local(), cf, upload_path.native(), generation::type{generation++});
+            make_sstable_for_all_shards(e.db().local(), cf, upload_path.native(), generation::from_value(generation++));
         }
 
       with_sstable_directory(upload_path, 1,

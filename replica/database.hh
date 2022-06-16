@@ -568,16 +568,16 @@ private:
     // update the sstable generation, making sure that new new sstables don't overwrite this one.
     void update_sstables_known_generation(sstables::generation::type generation) {
         if (!_sstable_generation) {
-            _sstable_generation = sstables::generation::type{1};
+            _sstable_generation = sstables::generation::from_value(1);
         }
-        _sstable_generation = std::max<sstables::generation::type>(*_sstable_generation, generation / ++sstables::generation::type{smp::count});
+        _sstable_generation = std::max<sstables::generation::type>(*_sstable_generation, generation / ++sstables::generation::from_value(smp::count));
     }
 
     sstables::generation::type calculate_generation_for_new_table() {
         assert(_sstable_generation);
         // FIXME: better way of ensuring we don't attempt to
         // overwrite an existing table.
-        return sstables::generation::type{sstables::generation::value((*_sstable_generation)++) * smp::count + this_shard_id()};
+        return sstables::generation::from_value(sstables::generation::value((*_sstable_generation)++) * smp::count + this_shard_id());
     }
 
     // inverse of calculate_generation_for_new_table(), used to determine which
@@ -660,7 +660,7 @@ public:
     // likely already called. We need to call this explicitly when we are sure we're ready
     // to issue disk operations safely.
     void mark_ready_for_writes() {
-        update_sstables_known_generation(sstables::generation::type{0});
+        update_sstables_known_generation(sstables::generation::from_value(0));
     }
 
     // Creates a mutation reader which covers all data sources for this column family.

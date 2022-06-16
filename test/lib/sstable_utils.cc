@@ -105,7 +105,7 @@ shared_sstable make_sstable(sstables::test_env& env, schema_ptr s, sstring dir, 
         mt->apply(m);
     }
 
-    return make_sstable_easy(env, dir_path, mt, cfg, generation::type{1}, version, mutations.size(), query_time);
+    return make_sstable_easy(env, dir_path, mt, cfg, generation::from_value(1), version, mutations.size(), query_time);
 }
 
 shared_sstable make_sstable_easy(test_env& env, const fs::path& path, flat_mutation_reader_v2 rd, sstable_writer_config cfg,

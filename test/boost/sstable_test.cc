@@ -131,11 +131,11 @@ SEASTAR_TEST_CASE(small_summary_query_negative_fail) {
 }
 
 SEASTAR_TEST_CASE(big_summary_query_0) {
-    return summary_query<0, 0, 182>(uncompressed_schema(), "test/resource/sstables/bigsummary", generation::type{76});
+    return summary_query<0, 0, 182>(uncompressed_schema(), "test/resource/sstables/bigsummary", generation::from_value(76));
 }
 
 SEASTAR_TEST_CASE(big_summary_query_32) {
-    return summary_query<32, 0xc4000, 182>(uncompressed_schema(), "test/resource/sstables/bigsummary", generation::type{76});
+    return summary_query<32, 0xc4000, 182>(uncompressed_schema(), "test/resource/sstables/bigsummary", generation::from_value(76));
 }
 
 // The following two files are just a copy of uncompressed's 1. But the Summary
@@ -175,7 +175,7 @@ SEASTAR_TEST_CASE(missing_summary_first_last_sane) {
 
 static future<sstable_ptr> do_write_sst(test_env& env, schema_ptr schema, sstring load_dir, sstring write_dir, generation::type generation) {
     return env.reusable_sst(std::move(schema), load_dir, generation).then([write_dir, generation] (sstable_ptr sst) {
-        sstables::test(sst).change_generation_number(generation::type{generation::value(generation) + 1});
+        sstables::test(sst).change_generation_number(generation::from_value(generation::value(generation) + 1));
         sstables::test(sst).change_dir(write_dir);
         auto fut = sstables::test(sst).store();
         return std::move(fut).then([sst = std::move(sst)] {
@@ -413,7 +413,7 @@ SEASTAR_TEST_CASE(find_key_composite) {
 }
 
 SEASTAR_TEST_CASE(all_in_place) {
-    return test_using_reusable_sst(uncompressed_schema(), "test/resource/sstables/bigsummary", generation::type{76}, [] (auto& env, auto sstp) {
+    return test_using_reusable_sst(uncompressed_schema(), "test/resource/sstables/bigsummary", generation::from_value(76), [] (auto& env, auto sstp) {
         auto& summary = sstables::test(sstp)._summary();
 
         int idx = 0;
@@ -458,7 +458,7 @@ SEASTAR_TEST_CASE(not_find_key_composite_bucket0) {
 
 // See CASSANDRA-7593. This sstable writes 0 in the range_start. We need to handle that case as well
 SEASTAR_TEST_CASE(wrong_range) {
-    return test_using_reusable_sst(uncompressed_schema(), "test/resource/sstables/wrongrange", generation::type{114}, [] (auto& env, auto sstp) {
+    return test_using_reusable_sst(uncompressed_schema(), "test/resource/sstables/wrongrange", generation::from_value(114), [] (auto& env, auto sstp) {
         return do_with(dht::partition_range::make_singular(make_dkey(uncompressed_schema(), "todata")), [&env, sstp] (auto& range) {
             auto s = columns_schema();
             return with_closeable(sstp->make_reader(s, env.make_reader_permit(), range, s->full_slice()), [sstp, s] (auto& rd) {
@@ -555,7 +555,7 @@ static schema_ptr large_partition_schema() {
 static future<shared_sstable> load_large_partition_sst(test_env& env, const sstables::sstable::version_types version) {
     auto s = large_partition_schema();
     auto dir = get_test_dir("large_partition", s);
-    return env.reusable_sst(std::move(s), std::move(dir), generation::type{3}, version);
+    return env.reusable_sst(std::move(s), std::move(dir), generation::from_value(3), version);
 }
 
 // This is a rudimentary test that reads an sstable exported from Cassandra

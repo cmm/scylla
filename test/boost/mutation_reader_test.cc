@@ -685,7 +685,7 @@ struct sst_factory {
     {}
 
     sstables::shared_sstable operator()() {
-        auto sst = env.make_sstable(s, path, generation::type{gen});
+        auto sst = env.make_sstable(s, path, generation::from_value(gen));
         sst->set_sstable_level(level);
 
         return sst;
@@ -1014,7 +1014,7 @@ sstables::shared_sstable create_sstable(sstables::test_env& env, simple_schema& 
     }
 
     return make_sstable_containing([&] {
-            return env.make_sstable(sschema.schema(), path, generation::type{0});
+            return env.make_sstable(sschema.schema(), path, generation::from_value(0));
         }
         , mutations);
 }
@@ -1024,7 +1024,7 @@ sstables::shared_sstable create_sstable(sstables::test_env& env, schema_ptr s, s
     static thread_local auto tmp = tmpdir();
     static int gen = 0;
     return make_sstable_containing([&] {
-        return env.make_sstable(s, tmp.path().string(), generation::type{gen++});
+        return env.make_sstable(s, tmp.path().string(), generation::from_value(gen++));
     }, mutations);
 }
 
@@ -3904,7 +3904,7 @@ static future<> do_test_clustering_order_merger_sstable_set(bool reversed) {
         generation::value_type gen = 0;
         for (auto& mb: scenario.readers_data) {
             auto sst_factory = [table_schema, &env, &tmp, gen = ++gen] () {
-                return env.make_sstable(std::move(table_schema), tmp.path().string(), generation::type{gen},
+                return env.make_sstable(std::move(table_schema), tmp.path().string(), generation::from_value(gen),
                     sstables::sstable::version_types::md, sstables::sstable::format_types::big);
             };
 
@@ -3921,7 +3921,7 @@ static future<> do_test_clustering_order_merger_sstable_set(bool reversed) {
             }
 
             if (dist(engine)) {
-                included_gens.insert(generation::type{gen});
+                included_gens.insert(generation::from_value(gen));
                 if (mb.m) {
                     merged += *mb.m;
                 }

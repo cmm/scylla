@@ -207,7 +207,7 @@ static sizes calculate_sizes(cache_tracker& tracker, const mutation_settings& se
         for (auto v  : sstables::all_sstable_versions) {
             auto sst = env.make_sstable(s,
                 sstable_dir.path().string(),
-                generation::type{1},
+                generation::from_value(1),
                 v,
                 sstables::sstable::format_types::big);
             auto mt2 = make_lw_shared<replica::memtable>(s);

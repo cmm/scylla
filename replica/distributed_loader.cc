@@ -329,14 +329,14 @@ distributed_loader::process_upload_dir(distributed<replica::database>& db, distr
             // we need generation calculated by instance of cf at requested shard
             auto gen = shard_gen[shard].fetch_add(smp::count, std::memory_order_relaxed);
 
-            return global_table->make_sstable(upload.native(), sstables::generation::type{gen},
+            return global_table->make_sstable(upload.native(), sstables::generation::from_value(gen),
                     global_table->get_sstables_manager().get_highest_supported_format(),
                     sstables::sstable::format_types::big, &error_handler_gen_for_upload_dir);
         }).get();
 
         reshape(directory, db, sstables::reshape_mode::strict, ks, cf, [global_table, upload, &shard_gen] (shard_id shard) {
             auto gen = shard_gen[shard].fetch_add(smp::count, std::memory_order_relaxed);
-            return global_table->make_sstable(upload.native(), sstables::generation::type{gen},
+            return global_table->make_sstable(upload.native(), sstables::generation::from_value(gen),
                   global_table->get_sstables_manager().get_highest_supported_format(),
                   sstables::sstable::format_types::big,
                   &error_handler_gen_for_upload_dir);

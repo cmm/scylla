@@ -36,14 +36,14 @@ SEASTAR_THREAD_TEST_CASE(test_sstable_move) {
     auto stop_env = defer([&env] { env.stop().get(); });
 
     int64_t gen = 1;
-    auto sst = copy_sst_to_tmpdir(tmp.path(), env, uncompressed_schema(), fs::path(uncompressed_dir()), generation::type{gen});
+    auto sst = copy_sst_to_tmpdir(tmp.path(), env, uncompressed_schema(), fs::path(uncompressed_dir()), generation::from_value(gen));
 
     for (auto i = 0; i < 2; i++) {
         ++gen;
         auto cur_dir = sst->get_dir();
-        auto new_dir = format("{}/gen-{}", fs::path(cur_dir).parent_path().native(), generation::type{gen});
+        auto new_dir = format("{}/gen-{}", fs::path(cur_dir).parent_path().native(), generation::from_value(gen));
         touch_directory(new_dir).get();
-        sst->move_to_new_dir(new_dir, generation::type{gen}, true).get();
+        sst->move_to_new_dir(new_dir, generation::from_value(gen), true).get();
         // the source directory must be empty now
         remove_file(cur_dir).get();
     }
@@ -51,7 +51,7 @@ SEASTAR_THREAD_TEST_CASE(test_sstable_move) {
     // close  the sst and make we can load it from the new directory.
     auto new_dir = sst->get_dir();
     sst->close_files().get();
-    sst = env.reusable_sst(uncompressed_schema(), new_dir, generation::type{gen}).get0();
+    sst = env.reusable_sst(uncompressed_schema(), new_dir, generation::from_value(gen)).get0();
 }
 
 // Simulate a crashed create_links.
@@ -88,7 +88,7 @@ SEASTAR_THREAD_TEST_CASE(test_sstable_move_replay) {
     auto stop_env = defer([&env] { env.stop().get(); });
 
     int64_t gen = 1;
-    auto sst = copy_sst_to_tmpdir(tmp.path(), env, uncompressed_schema(), fs::path(uncompressed_dir()), generation::type{gen});
+    auto sst = copy_sst_to_tmpdir(tmp.path(), env, uncompressed_schema(), fs::path(uncompressed_dir()), generation::from_value(gen));
 
     bool done;
     int count = 0;
@@ -97,8 +97,8 @@ SEASTAR_THREAD_TEST_CASE(test_sstable_move_replay) {
         auto cur_dir = sst->get_dir();
         auto new_dir = format("{}/gen-{}", fs::path(cur_dir).parent_path().native(), gen);
         touch_directory(new_dir).get();
-        done = partial_create_links(sst, fs::path(new_dir), generation::type{gen}, count++);
-        sst->move_to_new_dir(new_dir, generation::type{gen}, true).get();
+        done = partial_create_links(sst, fs::path(new_dir), generation::from_value(gen), count++);
+        sst->move_to_new_dir(new_dir, generation::from_value(gen), true).get();
         remove_file(cur_dir).get();
     } while (!done);
 }
@@ -109,11 +109,11 @@ SEASTAR_THREAD_TEST_CASE(test_sstable_move_exists_failure) {
     auto stop_env = defer([&env] { env.stop().get(); });
 
     int64_t gen = 1;
-    auto src_sst = copy_sst_to_tmpdir(tmp.path(), env, uncompressed_schema(), fs::path(uncompressed_dir()), generation::type{gen});
-    auto dst_sst = copy_sst_to_tmpdir(tmp.path(), env, uncompressed_schema(), fs::path(uncompressed_dir()), generation::type{++gen});
+    auto src_sst = copy_sst_to_tmpdir(tmp.path(), env, uncompressed_schema(), fs::path(uncompressed_dir()), generation::from_value(gen));
+    auto dst_sst = copy_sst_to_tmpdir(tmp.path(), env, uncompressed_schema(), fs::path(uncompressed_dir()), generation::from_value(++gen));
 
     auto cur_dir = src_sst->get_dir();
     auto new_dir = dst_sst->get_dir();
     dst_sst->close_files().get();
-    BOOST_REQUIRE_THROW(src_sst->move_to_new_dir(new_dir, generation::type{gen}, true).get(), malformed_sstable_exception);
+    BOOST_REQUIRE_THROW(src_sst->move_to_new_dir(new_dir, generation::from_value(gen), true).get(), malformed_sstable_exception);
 }
