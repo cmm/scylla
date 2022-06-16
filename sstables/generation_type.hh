@@ -24,13 +24,13 @@ using value_type = int64_t;
 };
 
 struct generation_type {
-    using value_type = generation::value_type;
+    using value_type = ::sstables::generation::value_type;
 private:
     value_type _value;
 public:
     generation_type() noexcept = default;
     explicit generation_type(value_type value) noexcept: _value(value) {}
-    value_type value() const noexcept { return _value; }
+    generation::value_type value() const noexcept { return _value; }
     bool operator<(const generation_type& other) const noexcept { return _value < other._value; }
     bool operator>(const generation_type& other) const noexcept { return _value > other._value; }
     bool operator<=(const generation_type& other) const noexcept { return _value <= other._value; }

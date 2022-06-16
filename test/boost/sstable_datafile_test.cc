@@ -2124,7 +2124,7 @@ SEASTAR_TEST_CASE(sstable_set_incremental_selector) {
                 return dht::decorate_key(*s, std::move(pk));
             }));
 
-    auto check = [] (sstable_set::incremental_selector& selector, const dht::decorated_key& key, std::unordered_set<generation_type::value_type> expected_gens) {
+    auto check = [] (sstable_set::incremental_selector& selector, const dht::decorated_key& key, std::unordered_set<generation::value_type> expected_gens) {
         auto sstables = selector.select(key).sstables;
         BOOST_REQUIRE_EQUAL(sstables.size(), expected_gens.size());
         for (auto& sst : sstables) {

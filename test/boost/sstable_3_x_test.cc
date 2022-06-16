@@ -3010,7 +3010,7 @@ static sstables::shared_sstable open_sstable(test_env& env, schema_ptr schema, s
     return env.reusable_sst(std::move(schema), dir, generation, sstables::sstable::version_types::mc).get0();
 }
 
-static std::vector<sstables::shared_sstable> open_sstables(test_env& env, schema_ptr s, sstring dir, std::vector<generation_type::value_type> generations) {
+static std::vector<sstables::shared_sstable> open_sstables(test_env& env, schema_ptr s, sstring dir, std::vector<generation::value_type> generations) {
     std::vector<sstables::shared_sstable> result;
     for(auto generation: generations) {
         result.push_back(open_sstable(env, s, dir, generation_type{generation}));
@@ -3019,7 +3019,7 @@ static std::vector<sstables::shared_sstable> open_sstables(test_env& env, schema
 }
 
 static flat_mutation_reader_v2 compacted_sstable_reader(test_env& env, schema_ptr s,
-                     sstring table_name, std::vector<generation_type::value_type> generations) {
+                     sstring table_name, std::vector<generation::value_type> generations) {
     auto cm = make_lw_shared<compaction_manager>(compaction_manager::for_testing_tag{});
     auto cl_stats = make_lw_shared<cell_locker_stats>();
     auto tracker = make_lw_shared<cache_tracker>();

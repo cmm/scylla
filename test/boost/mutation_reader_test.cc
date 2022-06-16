@@ -3901,7 +3901,7 @@ static future<> do_test_clustering_order_merger_sstable_set(bool reversed) {
         time_series_sstable_set sst_set(table_schema);
         mutation merged(table_schema, g._pk);
         std::unordered_set<generation_type> included_gens;
-        generation_type::value_type gen = 0;
+        generation::value_type gen = 0;
         for (auto& mb: scenario.readers_data) {
             auto sst_factory = [table_schema, &env, &tmp, gen = ++gen] () {
                 return env.make_sstable(std::move(table_schema), tmp.path().string(), generation_type{gen},

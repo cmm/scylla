@@ -320,7 +320,7 @@ distributed_loader::process_upload_dir(distributed<replica::database>& db, distr
 
         // We still want to do our best to keep the generation numbers shard-friendly.
         // Each destination shard will manage its own generation counter.
-        std::vector<std::atomic<sstables::generation_type::value_type>> shard_gen(smp::count);
+        std::vector<std::atomic<sstables::generation::value_type>> shard_gen(smp::count);
         for (shard_id s = 0; s < smp::count; ++s) {
             shard_gen[s].store(shard_generation_base.value() * smp::count + s, std::memory_order_relaxed);
         }
