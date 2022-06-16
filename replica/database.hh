@@ -570,7 +570,7 @@ private:
         if (!_sstable_generation) {
             _sstable_generation = sstables::generation::from_value(1);
         }
-        _sstable_generation = std::max<sstables::generation::type>(*_sstable_generation, generation / ++sstables::generation::from_value(smp::count));
+        _sstable_generation = std::max<sstables::generation::type>(*_sstable_generation, sstables::generation::from_value(sstables::generation::value(generation) / smp::count + 1));
     }
 
     sstables::generation::type calculate_generation_for_new_table() {
