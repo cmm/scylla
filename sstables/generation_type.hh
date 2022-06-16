@@ -16,9 +16,15 @@
 #include <seastar/core/sstring.hh>
 
 namespace sstables {
-class generation_type {
-public:
-    using value_type = uint64_t;
+
+namespace generation {
+
+using value_type = int64_t;
+
+};
+
+struct generation_type {
+    using value_type = generation::value_type;
 private:
     value_type _value;
 public:
@@ -39,44 +45,58 @@ public:
     generation_type operator/(generation_type other) const { return generation_type{_value / other._value}; }
     generation_type operator%(generation_type other) const { return generation_type{_value % other._value}; }
 };
+
+namespace generation {
+
+using type = generation_type;
+
+static inline type from_value(value_type value) {
+    return type(value);
 }
+
+static inline value_type value(type generation) {
+    return generation.value();
+}
+};
+
+};
 
 namespace seastar {
 template <typename string_type = sstring>
-string_type to_sstring(sstables::generation_type generation) {
-    return to_sstring(generation.value());
+string_type to_sstring(sstables::generation::type generation) {
+    return to_sstring(sstables::generation::value(generation));
 }
 }
 
 namespace fmt {
-template <> struct formatter<sstables::generation_type> {
+template <> struct formatter<sstables::generation::type> {
     constexpr auto parse(format_parse_context& ctx) {
         return ctx.end();
     }
     template <typename FormatContext>
-    auto format(const sstables::generation_type& g, FormatContext& ctx) {
-        return format_to(ctx.out(), "{}", g.value());
+    auto format(const sstables::generation::type& generation, FormatContext& ctx) {
+        return format_to(ctx.out(), "{}", sstables::generation::value(generation));
     }
 };
 }
 
 namespace std {
-template <> struct numeric_limits<sstables::generation_type> : public numeric_limits<sstables::generation_type::value_type> {
+template <> struct numeric_limits<sstables::generation::type> : public numeric_limits<sstables::generation::value_type> {
 private:
-    using value_limits = numeric_limits<sstables::generation_type::value_type>;
+    using value_limits = numeric_limits<sstables::generation::value_type>;
 public:
-    static sstables::generation_type min() noexcept { return sstables::generation_type{value_limits::min()}; }
-    static sstables::generation_type max() noexcept { return sstables::generation_type{value_limits::max()}; }
-    static sstables::generation_type lowest() noexcept { return sstables::generation_type{value_limits::lowest()}; }
+    static sstables::generation::type min() noexcept { return sstables::generation::from_value(value_limits::min()); }
+    static sstables::generation::type max() noexcept { return sstables::generation::from_value(value_limits::max()); }
+    static sstables::generation::type lowest() noexcept { return sstables::generation::from_value(value_limits::lowest()); }
 };
 
-template <> struct hash<sstables::generation_type> {
-    size_t operator()(const sstables::generation_type& generation) const noexcept {
-        return hash<sstables::generation_type::value_type>{}(generation.value());
+template <> struct hash<sstables::generation::type> {
+    size_t operator()(const sstables::generation::type& generation) const noexcept {
+        return hash<sstables::generation::value_type>{}(sstables::generation::value(generation));
     }
 };
 
-static inline ostream& operator<<(ostream& s, sstables::generation_type generation) {
-    return s << generation.value();
+static inline ostream& operator<<(ostream& s, sstables::generation::type generation) {
+    return s << sstables::generation::value(generation);
 }
 }
