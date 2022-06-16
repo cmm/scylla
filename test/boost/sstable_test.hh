@@ -46,15 +46,15 @@ public:
         _cf->refresh_compound_sstable_set();
     }
 
-    static void update_sstables_known_generation(replica::column_family& cf, unsigned generation) {
+    static void update_sstables_known_generation(replica::column_family& cf, generation_type generation) {
         cf.update_sstables_known_generation(generation);
     }
 
-    static uint64_t calculate_generation_for_new_table(replica::column_family& cf) {
+    static generation_type calculate_generation_for_new_table(replica::column_family& cf) {
         return cf.calculate_generation_for_new_table();
     }
 
-    static int64_t calculate_shard_from_sstable_generation(int64_t generation) {
+    static int64_t calculate_shard_from_sstable_generation(generation_type generation) {
         return replica::column_family::calculate_shard_from_sstable_generation(generation);
     }
 

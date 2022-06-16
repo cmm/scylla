@@ -19,9 +19,9 @@ class extremum_tracker {
     bool _is_set = false;
     T _value;
 public:
-    explicit extremum_tracker(T default_value) {
-        _default_value = default_value;
-    }
+    explicit extremum_tracker(T default_value)
+        : _default_value(default_value)
+    {}
 
     void update(T value) {
         if (!_is_set) {

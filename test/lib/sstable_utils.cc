@@ -179,12 +179,12 @@ std::vector<std::pair<sstring, dht::token>> token_generation_for_current_shard(u
     return token_generation_for_shard(tokens_to_generate, this_shard_id());
 }
 
-static sstring toc_filename(const sstring& dir, schema_ptr schema, unsigned int generation, sstable_version_types v) {
+static sstring toc_filename(const sstring& dir, schema_ptr schema, generation_type generation, sstable_version_types v) {
     return sstable::filename(dir, schema->ks_name(), schema->cf_name(), v, generation,
                              sstable_format_types::big, component_type::TOC);
 }
 
-future<shared_sstable> test_env::reusable_sst(schema_ptr schema, sstring dir, unsigned long generation) {
+future<shared_sstable> test_env::reusable_sst(schema_ptr schema, sstring dir, generation_type generation) {
     for (auto v : boost::adaptors::reverse(all_sstable_versions)) {
         if (co_await file_exists(toc_filename(dir, schema, generation, v))) {
             co_return co_await reusable_sst(schema, dir, generation, v);

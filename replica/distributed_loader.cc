@@ -219,9 +219,9 @@ distributed_loader::reshard(sharded<sstables::sstable_directory>& dir, sharded<r
     co_await run_resharding_jobs(dir, std::move(destinations), db, ks_name, table_name, std::move(creator));
 }
 
-future<int64_t>
+future<sstables::generation_type>
 highest_generation_seen(sharded<sstables::sstable_directory>& directory) {
-    return directory.map_reduce0(std::mem_fn(&sstables::sstable_directory::highest_generation_seen), int64_t(0), [] (int64_t a, int64_t b) {
+    return directory.map_reduce0(std::mem_fn(&sstables::sstable_directory::highest_generation_seen), sstables::generation_type(0), [] (sstables::generation_type a, sstables::generation_type b) {
         return std::max(a, b);
     });
 }
@@ -320,9 +320,9 @@ distributed_loader::process_upload_dir(distributed<replica::database>& db, distr
 
         // We still want to do our best to keep the generation numbers shard-friendly.
         // Each destination shard will manage its own generation counter.
-        std::vector<std::atomic<int64_t>> shard_gen(smp::count);
+        std::vector<std::atomic<sstables::generation_type::value_type>> shard_gen(smp::count);
         for (shard_id s = 0; s < smp::count; ++s) {
-            shard_gen[s].store(shard_generation_base * smp::count + s, std::memory_order_relaxed);
+            shard_gen[s].store((shard_generation_base * smp::count + s).value(), std::memory_order_relaxed);
         }
 
         reshard(directory, db, ks, cf, [&global_table, upload, &shard_gen] (shard_id shard) mutable {

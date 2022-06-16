@@ -629,7 +629,7 @@ SEASTAR_TEST_CASE(leveled_01) {
     BOOST_REQUIRE(candidate.sstables.size() == 2);
     BOOST_REQUIRE(candidate.level == 1);
 
-    std::set<unsigned long> gens = { 1, 2 };
+    std::set<generation_type> gens = { 1, 2 };
     for (auto& sst : candidate.sstables) {
         BOOST_REQUIRE(gens.contains(sst->generation()));
         gens.erase(sst->generation());
@@ -683,7 +683,7 @@ SEASTAR_TEST_CASE(leveled_02) {
     BOOST_REQUIRE(candidate.sstables.size() == 3);
     BOOST_REQUIRE(candidate.level == 1);
 
-    std::set<unsigned long> gens = { 1, 2, 3 };
+    std::set<generation_type> gens = { 1, 2, 3 };
     for (auto& sst : candidate.sstables) {
         BOOST_REQUIRE(gens.contains(sst->generation()));
         gens.erase(sst->generation());
@@ -739,9 +739,9 @@ SEASTAR_TEST_CASE(leveled_03) {
     BOOST_REQUIRE(candidate.sstables.size() == 3);
     BOOST_REQUIRE(candidate.level == 1);
 
-    std::set<std::pair<unsigned long, uint32_t>> gen_and_level = { {1,0}, {2,0}, {3,1} };
+    std::set<std::pair<generation_type, uint32_t>> gen_and_level = { {1,0}, {2,0}, {3,1} };
     for (auto& sst : candidate.sstables) {
-        std::pair<unsigned long, uint32_t> pair(sst->generation(), sst->get_sstable_level());
+        std::pair<generation_type, uint32_t> pair(sst->generation(), sst->get_sstable_level());
         auto it = gen_and_level.find(pair);
         BOOST_REQUIRE(it != gen_and_level.end());
         BOOST_REQUIRE(sst->get_sstable_level() == it->second);
@@ -1533,7 +1533,7 @@ SEASTAR_TEST_CASE(date_tiered_strategy_test_2) {
     auto gc_before = gc_clock::time_point(std::chrono::seconds(0)); // disable gc before.
     auto table_s = make_table_state_for_test(cf, env);
     auto sstables = manifest.get_next_sstables(*table_s, candidates, gc_before);
-    std::unordered_set<int64_t> gens;
+    std::unordered_set<generation_type> gens;
     for (auto sst : sstables) {
         gens.insert(sst->generation());
     }
@@ -3088,7 +3088,7 @@ SEASTAR_TEST_CASE(sstable_run_based_compaction_test) {
             });
 
             BOOST_REQUIRE(desc.sstables.size() == expected_input);
-            auto sstable_run = boost::copy_range<std::set<int64_t>>(desc.sstables
+            auto sstable_run = boost::copy_range<std::set<generation_type>>(desc.sstables
                 | boost::adaptors::transformed([] (auto& sst) { return sst->generation(); }));
             auto expected_sst = sstable_run.begin();
             auto closed_sstables_tracker = sstable_run.begin();
@@ -3275,7 +3275,7 @@ SEASTAR_TEST_CASE(partial_sstable_run_filtered_out_test) {
         column_family_test(cf).add_sstable(partial_sstable_run_sst);
         column_family_test::update_sstables_known_generation(*cf, partial_sstable_run_sst->generation());
 
-        auto generation_exists = [&cf] (int64_t generation) {
+        auto generation_exists = [&cf] (generation_type generation) {
             auto sstables = cf->get_sstables();
             auto entry = boost::range::find_if(*sstables, [generation] (shared_sstable sst) { return generation == sst->generation(); });
             return entry != sstables->end();
@@ -4298,7 +4298,7 @@ SEASTAR_TEST_CASE(twcs_reshape_with_disjoint_set_test) {
                 mutations_for_big_files.push_back(make_row(i, std::chrono::hours(1)));
             }
 
-            std::unordered_set<int64_t> generations_for_small_files;
+            std::unordered_set<generation_type> generations_for_small_files;
 
             std::vector<sstables::shared_sstable> sstables;
             sstables.reserve(64);
@@ -4593,7 +4593,7 @@ SEASTAR_TEST_CASE(compound_sstable_set_incremental_selector_test) {
                     return dht::decorate_key(*s, std::move(pk));
                 }));
 
-        auto check = [] (sstable_set::incremental_selector& selector, const dht::decorated_key& key, std::unordered_set<int64_t> expected_gens) {
+        auto check = [] (sstable_set::incremental_selector& selector, const dht::decorated_key& key, std::unordered_set<generation_type> expected_gens) {
             auto sstables = selector.select(key).sstables;
             BOOST_REQUIRE_EQUAL(sstables.size(), expected_gens.size());
             for (auto& sst : sstables) {
@@ -4989,7 +4989,7 @@ SEASTAR_TEST_CASE(test_compaction_strategy_cleanup_method) {
             auto [candidates, descriptors] = get_cleanup_jobs(compaction_strategy_type, std::forward<decltype(args)>(args)...);
             testlog.info("get_cleanup_jobs() returned {} descriptors; expected={}", descriptors.size(), target_job_count);
             BOOST_REQUIRE(descriptors.size() == target_job_count);
-            auto generations = boost::copy_range<std::unordered_set<unsigned>>(candidates | boost::adaptors::transformed(std::mem_fn(&sstables::sstable::generation)));
+            auto generations = boost::copy_range<std::unordered_set<generation_type>>(candidates | boost::adaptors::transformed(std::mem_fn(&sstables::sstable::generation)));
             auto check_desc = [&] (const auto& desc) {
                 BOOST_REQUIRE(desc.sstables.size() == per_job_files);
                 for (auto& sst: desc.sstables) {

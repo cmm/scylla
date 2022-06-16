@@ -566,11 +566,11 @@ private:
     struct merge_comparator;
 
     // update the sstable generation, making sure that new new sstables don't overwrite this one.
-    void update_sstables_known_generation(unsigned generation) {
+    void update_sstables_known_generation(sstables::generation_type generation) {
         if (!_sstable_generation) {
             _sstable_generation = 1;
         }
-        _sstable_generation = std::max<sstables::generation_type>(*_sstable_generation, generation /  smp::count + 1);
+        _sstable_generation = std::max<sstables::generation_type>(*_sstable_generation, generation / smp::count + 1);
     }
 
     sstables::generation_type calculate_generation_for_new_table() {
@@ -583,7 +583,7 @@ private:
     // inverse of calculate_generation_for_new_table(), used to determine which
     // shard a sstable should be opened at.
     static seastar::shard_id calculate_shard_from_sstable_generation(sstables::generation_type sstable_generation) {
-        return sstable_generation % smp::count;
+        return sstable_generation.value() % smp::count;
     }
 public:
     // This will update sstable lists on behalf of off-strategy compaction, where

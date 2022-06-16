@@ -2121,7 +2121,7 @@ SEASTAR_TEST_CASE(sstable_set_incremental_selector) {
                 return dht::decorate_key(*s, std::move(pk));
             }));
 
-    auto check = [] (sstable_set::incremental_selector& selector, const dht::decorated_key& key, std::unordered_set<int64_t> expected_gens) {
+    auto check = [] (sstable_set::incremental_selector& selector, const dht::decorated_key& key, std::unordered_set<generation_type> expected_gens) {
         auto sstables = selector.select(key).sstables;
         BOOST_REQUIRE_EQUAL(sstables.size(), expected_gens.size());
         for (auto& sst : sstables) {
@@ -2939,7 +2939,7 @@ SEASTAR_TEST_CASE(compound_sstable_set_basic_test) {
         set2->insert(sstable_for_overlapping_test(env, s, 2, key_and_token_pair[0].first, key_and_token_pair[1].first, 0));
         set2->insert(sstable_for_overlapping_test(env, s, 3, key_and_token_pair[0].first, key_and_token_pair[1].first, 0));
 
-        BOOST_REQUIRE(boost::accumulate(*compound->all() | boost::adaptors::transformed([] (const sstables::shared_sstable& sst) { return sst->generation(); }), unsigned(0)) == 6);
+        BOOST_REQUIRE(boost::accumulate(*compound->all() | boost::adaptors::transformed([] (const sstables::shared_sstable& sst) { return sst->generation(); }), generation_type(0)) == 6);
         {
             unsigned found = 0;
             for (auto sstables = compound->all(); auto& sst : *sstables) {
