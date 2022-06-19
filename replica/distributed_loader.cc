@@ -219,9 +219,9 @@ distributed_loader::reshard(sharded<sstables::sstable_directory>& dir, sharded<r
     co_await run_resharding_jobs(dir, std::move(destinations), db, ks_name, table_name, std::move(creator));
 }
 
-future<sstables::generation::type>
+future<sstables::generation_type>
 highest_generation_seen(sharded<sstables::sstable_directory>& directory) {
-    return directory.map_reduce0(std::mem_fn(&sstables::sstable_directory::highest_generation_seen), sstables::generation::type(0), [] (sstables::generation::type a, sstables::generation::type b) {
+    return directory.map_reduce0(std::mem_fn(&sstables::sstable_directory::highest_generation_seen), sstables::generation_type(0), [] (sstables::generation_type a, sstables::generation_type b) {
         return std::max(a, b);
     });
 }
@@ -305,7 +305,7 @@ distributed_loader::process_upload_dir(distributed<replica::database>& db, distr
             sstables::sstable_directory::lack_of_toc_fatal::no,
             sstables::sstable_directory::enable_dangerous_direct_import_of_cassandra_counters(db.local().get_config().enable_dangerous_direct_import_of_cassandra_counters()),
             sstables::sstable_directory::allow_loading_materialized_view::no,
-            [&global_table] (fs::path dir, sstables::generation::type gen, sstables::sstable_version_types v, sstables::sstable_format_types f) {
+            [&global_table] (fs::path dir, sstables::generation_type gen, sstables::sstable_version_types v, sstables::sstable_format_types f) {
                 return global_table->make_sstable(dir.native(), gen, v, f, &error_handler_gen_for_upload_dir);
 
         }).get();
@@ -316,27 +316,27 @@ distributed_loader::process_upload_dir(distributed<replica::database>& db, distr
         process_sstable_dir(directory).get();
 
         auto generation = highest_generation_seen(directory).get0();
-        auto shard_generation_base = sstables::generation::from_value(sstables::generation::value(generation) / smp::count + 1);
+        auto shard_generation_base = sstables::generation_from_value(sstables::generation_value(generation) / smp::count + 1);
 
         // We still want to do our best to keep the generation numbers shard-friendly.
         // Each destination shard will manage its own generation counter.
-        std::vector<std::atomic<sstables::generation::value_type>> shard_gen(smp::count);
+        std::vector<std::atomic<sstables::generation_value_type>> shard_gen(smp::count);
         for (shard_id s = 0; s < smp::count; ++s) {
-            shard_gen[s].store(sstables::generation::value(shard_generation_base) * smp::count + s, std::memory_order_relaxed);
+            shard_gen[s].store(sstables::generation_value(shard_generation_base) * smp::count + s, std::memory_order_relaxed);
         }
 
         reshard(directory, db, ks, cf, [&global_table, upload, &shard_gen] (shard_id shard) mutable {
             // we need generation calculated by instance of cf at requested shard
             auto gen = shard_gen[shard].fetch_add(smp::count, std::memory_order_relaxed);
 
-            return global_table->make_sstable(upload.native(), sstables::generation::from_value(gen),
+            return global_table->make_sstable(upload.native(), sstables::generation_from_value(gen),
                     global_table->get_sstables_manager().get_highest_supported_format(),
                     sstables::sstable::format_types::big, &error_handler_gen_for_upload_dir);
         }).get();
 
         reshape(directory, db, sstables::reshape_mode::strict, ks, cf, [global_table, upload, &shard_gen] (shard_id shard) {
             auto gen = shard_gen[shard].fetch_add(smp::count, std::memory_order_relaxed);
-            return global_table->make_sstable(upload.native(), sstables::generation::from_value(gen),
+            return global_table->make_sstable(upload.native(), sstables::generation_from_value(gen),
                   global_table->get_sstables_manager().get_highest_supported_format(),
                   sstables::sstable::format_types::big,
                   &error_handler_gen_for_upload_dir);
@@ -371,7 +371,7 @@ distributed_loader::get_sstables_from_upload_dir(distributed<replica::database>&
             sstables::sstable_directory::lack_of_toc_fatal::no,
             sstables::sstable_directory::enable_dangerous_direct_import_of_cassandra_counters(db.local().get_config().enable_dangerous_direct_import_of_cassandra_counters()),
             sstables::sstable_directory::allow_loading_materialized_view::no,
-            [&global_table] (fs::path dir, sstables::generation::type gen, sstables::sstable_version_types v, sstables::sstable_format_types f) {
+            [&global_table] (fs::path dir, sstables::generation_type gen, sstables::sstable_version_types v, sstables::sstable_format_types f) {
                 return global_table->make_sstable(dir.native(), gen, v, f, &error_handler_gen_for_upload_dir);
 
         }).get();
@@ -463,7 +463,7 @@ future<> distributed_loader::populate_column_family(distributed<replica::databas
             sstables::sstable_directory::lack_of_toc_fatal::yes,
             sstables::sstable_directory::enable_dangerous_direct_import_of_cassandra_counters(db.local().get_config().enable_dangerous_direct_import_of_cassandra_counters()),
             sstables::sstable_directory::allow_loading_materialized_view::yes,
-            [&global_table] (fs::path dir, sstables::generation::type gen, sstables::sstable_version_types v, sstables::sstable_format_types f) {
+            [&global_table] (fs::path dir, sstables::generation_type gen, sstables::sstable_version_types v, sstables::sstable_format_types f) {
                 return global_table->make_sstable(dir.native(), gen, v, f);
         }).get();
 

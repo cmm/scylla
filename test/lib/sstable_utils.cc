@@ -105,11 +105,11 @@ shared_sstable make_sstable(sstables::test_env& env, schema_ptr s, sstring dir, 
         mt->apply(m);
     }
 
-    return make_sstable_easy(env, dir_path, mt, cfg, generation::from_value(1), version, mutations.size(), query_time);
+    return make_sstable_easy(env, dir_path, mt, cfg, generation_from_value(1), version, mutations.size(), query_time);
 }
 
 shared_sstable make_sstable_easy(test_env& env, const fs::path& path, flat_mutation_reader_v2 rd, sstable_writer_config cfg,
-        generation::type generation, const sstables::sstable::version_types version, int expected_partition) {
+        generation_type generation, const sstables::sstable::version_types version, int expected_partition) {
     auto s = rd.schema();
     auto sst = env.make_sstable(s, path.string(), generation, version, sstable_format_types::big);
     sst->write_components(std::move(rd), expected_partition, s, cfg, encoding_stats{}).get();
@@ -118,7 +118,7 @@ shared_sstable make_sstable_easy(test_env& env, const fs::path& path, flat_mutat
 }
 
 shared_sstable make_sstable_easy(test_env& env, const fs::path& path, lw_shared_ptr<replica::memtable> mt, sstable_writer_config cfg,
-        generation::type gen, const sstable::version_types v, int estimated_partitions, gc_clock::time_point query_time) {
+        generation_type gen, const sstable::version_types v, int estimated_partitions, gc_clock::time_point query_time) {
     schema_ptr s = mt->schema();
     auto sst = env.make_sstable(s, path.string(), gen, v, sstable_format_types::big, default_sstable_buffer_size, query_time);
     auto mr = mt->make_flat_reader(s, env.make_reader_permit());
@@ -179,12 +179,12 @@ std::vector<std::pair<sstring, dht::token>> token_generation_for_current_shard(u
     return token_generation_for_shard(tokens_to_generate, this_shard_id());
 }
 
-static sstring toc_filename(const sstring& dir, schema_ptr schema, generation::type generation, sstable_version_types v) {
+static sstring toc_filename(const sstring& dir, schema_ptr schema, generation_type generation, sstable_version_types v) {
     return sstable::filename(dir, schema->ks_name(), schema->cf_name(), v, generation,
                              sstable_format_types::big, component_type::TOC);
 }
 
-future<shared_sstable> test_env::reusable_sst(schema_ptr schema, sstring dir, generation::type generation) {
+future<shared_sstable> test_env::reusable_sst(schema_ptr schema, sstring dir, generation_type generation) {
     for (auto v : boost::adaptors::reverse(all_sstable_versions)) {
         if (co_await file_exists(toc_filename(dir, schema, generation, v))) {
             co_return co_await reusable_sst(schema, dir, generation, v);

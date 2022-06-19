@@ -253,25 +253,25 @@ SEASTAR_THREAD_TEST_CASE(test_distributed_loader_with_incomplete_sstables) {
         require_exist(file_name, true);
     };
 
-    auto temp_sst_dir = sst::temp_sst_dir(sst_dir, generation::from_value(2));
+    auto temp_sst_dir = sst::temp_sst_dir(sst_dir, generation_from_value(2));
     touch_dir(temp_sst_dir);
 
-    temp_sst_dir = sst::temp_sst_dir(sst_dir, generation::from_value(3));
+    temp_sst_dir = sst::temp_sst_dir(sst_dir, generation_from_value(3));
     touch_dir(temp_sst_dir);
-    auto temp_file_name = sst::filename(temp_sst_dir, ks, cf, sst::version_types::mc, generation::from_value(3), sst::format_types::big, component_type::TemporaryTOC);
+    auto temp_file_name = sst::filename(temp_sst_dir, ks, cf, sst::version_types::mc, generation_from_value(3), sst::format_types::big, component_type::TemporaryTOC);
     touch_file(temp_file_name);
 
-    temp_file_name = sst::filename(sst_dir, ks, cf, sst::version_types::mc, generation::from_value(4), sst::format_types::big, component_type::TemporaryTOC);
+    temp_file_name = sst::filename(sst_dir, ks, cf, sst::version_types::mc, generation_from_value(4), sst::format_types::big, component_type::TemporaryTOC);
     touch_file(temp_file_name);
-    temp_file_name = sst::filename(sst_dir, ks, cf, sst::version_types::mc, generation::from_value(4), sst::format_types::big, component_type::Data);
+    temp_file_name = sst::filename(sst_dir, ks, cf, sst::version_types::mc, generation_from_value(4), sst::format_types::big, component_type::Data);
     touch_file(temp_file_name);
 
     do_with_cql_env_thread([&sst_dir, &ks, &cf, &require_exist] (cql_test_env& e) {
-        require_exist(sst::temp_sst_dir(sst_dir, generation::from_value(2)), false);
-        require_exist(sst::temp_sst_dir(sst_dir, generation::from_value(3)), false);
+        require_exist(sst::temp_sst_dir(sst_dir, generation_from_value(2)), false);
+        require_exist(sst::temp_sst_dir(sst_dir, generation_from_value(3)), false);
 
-        require_exist(sst::filename(sst_dir, ks, cf, sst::version_types::mc, generation::from_value(4), sst::format_types::big, component_type::TemporaryTOC), false);
-        require_exist(sst::filename(sst_dir, ks, cf, sst::version_types::mc, generation::from_value(4), sst::format_types::big, component_type::Data), false);
+        require_exist(sst::filename(sst_dir, ks, cf, sst::version_types::mc, generation_from_value(4), sst::format_types::big, component_type::TemporaryTOC), false);
+        require_exist(sst::filename(sst_dir, ks, cf, sst::version_types::mc, generation_from_value(4), sst::format_types::big, component_type::Data), false);
     }, db_cfg_ptr).get();
 }
 
@@ -319,11 +319,11 @@ SEASTAR_THREAD_TEST_CASE(test_distributed_loader_with_pending_delete) {
         require_exist(file_name, true);
     };
 
-    auto component_basename = [&ks, &cf] (generation::type gen, component_type ctype) {
+    auto component_basename = [&ks, &cf] (generation_type gen, component_type ctype) {
         return sst::component_basename(ks, cf, sst::version_types::mc, gen, sst::format_types::big, ctype);
     };
 
-    auto gen_filename = [&sst_dir, &ks, &cf] (generation::type gen, component_type ctype) {
+    auto gen_filename = [&sst_dir, &ks, &cf] (generation_type gen, component_type ctype) {
         return sst::filename(sst_dir, ks, cf, sst::version_types::mc, gen, sst::format_types::big, ctype);
     };
 
@@ -338,32 +338,32 @@ SEASTAR_THREAD_TEST_CASE(test_distributed_loader_with_pending_delete) {
     const sstring toc_text = "TOC.txt\nData.db\n";
 
     // Regular log file with single entry
-    write_file(gen_filename(generation::from_value(2), component_type::TOC), toc_text);
-    touch_file(gen_filename(generation::from_value(2), component_type::Data));
+    write_file(gen_filename(generation_from_value(2), component_type::TOC), toc_text);
+    touch_file(gen_filename(generation_from_value(2), component_type::Data));
     write_file(pending_delete_dir + "/sstables-2-2.log",
-               component_basename(generation::from_value(2), component_type::TOC) + "\n");
+               component_basename(generation_from_value(2), component_type::TOC) + "\n");
 
     // Temporary log file with single entry
     write_file(pending_delete_dir + "/sstables-3-3.log.tmp",
-               component_basename(generation::from_value(3), component_type::TOC) + "\n");
+               component_basename(generation_from_value(3), component_type::TOC) + "\n");
 
     // Regular log file with multiple entries
-    write_file(gen_filename(generation::from_value(4), component_type::TOC), toc_text);
-    touch_file(gen_filename(generation::from_value(4), component_type::Data));
-    write_file(gen_filename(generation::from_value(5), component_type::TOC), toc_text);
-    touch_file(gen_filename(generation::from_value(5), component_type::Data));
+    write_file(gen_filename(generation_from_value(4), component_type::TOC), toc_text);
+    touch_file(gen_filename(generation_from_value(4), component_type::Data));
+    write_file(gen_filename(generation_from_value(5), component_type::TOC), toc_text);
+    touch_file(gen_filename(generation_from_value(5), component_type::Data));
     write_file(pending_delete_dir + "/sstables-4-5.log",
-               component_basename(generation::from_value(4), component_type::TOC) + "\n" +
-               component_basename(generation::from_value(5), component_type::TOC) + "\n");
+               component_basename(generation_from_value(4), component_type::TOC) + "\n" +
+               component_basename(generation_from_value(5), component_type::TOC) + "\n");
 
     // Regular log file with multiple entries and some deleted sstables
-    write_file(gen_filename(generation::from_value(6), component_type::TemporaryTOC), toc_text);
-    touch_file(gen_filename(generation::from_value(6), component_type::Data));
-    write_file(gen_filename(generation::from_value(7), component_type::TemporaryTOC), toc_text);
+    write_file(gen_filename(generation_from_value(6), component_type::TemporaryTOC), toc_text);
+    touch_file(gen_filename(generation_from_value(6), component_type::Data));
+    write_file(gen_filename(generation_from_value(7), component_type::TemporaryTOC), toc_text);
     write_file(pending_delete_dir + "/sstables-6-8.log",
-               component_basename(generation::from_value(6), component_type::TOC) + "\n" +
-               component_basename(generation::from_value(7), component_type::TOC) + "\n" +
-               component_basename(generation::from_value(8), component_type::TOC) + "\n");
+               component_basename(generation_from_value(6), component_type::TOC) + "\n" +
+               component_basename(generation_from_value(7), component_type::TOC) + "\n" +
+               component_basename(generation_from_value(8), component_type::TOC) + "\n");
 
     do_with_cql_env_thread([&] (cql_test_env& e) {
         // Empty log file
@@ -373,24 +373,24 @@ SEASTAR_THREAD_TEST_CASE(test_distributed_loader_with_pending_delete) {
         require_exist(pending_delete_dir + "/sstables-1-1.log.tmp", false);
 
         // Regular log file with single entry
-        require_exist(gen_filename(generation::from_value(2), component_type::TOC), false);
-        require_exist(gen_filename(generation::from_value(2), component_type::Data), false);
+        require_exist(gen_filename(generation_from_value(2), component_type::TOC), false);
+        require_exist(gen_filename(generation_from_value(2), component_type::Data), false);
         require_exist(pending_delete_dir + "/sstables-2-2.log", false);
 
         // Temporary log file with single entry
         require_exist(pending_delete_dir + "/sstables-3-3.log.tmp", false);
 
         // Regular log file with multiple entries
-        require_exist(gen_filename(generation::from_value(4), component_type::TOC), false);
-        require_exist(gen_filename(generation::from_value(4), component_type::Data), false);
-        require_exist(gen_filename(generation::from_value(5), component_type::TOC), false);
-        require_exist(gen_filename(generation::from_value(5), component_type::Data), false);
+        require_exist(gen_filename(generation_from_value(4), component_type::TOC), false);
+        require_exist(gen_filename(generation_from_value(4), component_type::Data), false);
+        require_exist(gen_filename(generation_from_value(5), component_type::TOC), false);
+        require_exist(gen_filename(generation_from_value(5), component_type::Data), false);
         require_exist(pending_delete_dir + "/sstables-4-5.log", false);
 
         // Regular log file with multiple entries and some deleted sstables
-        require_exist(gen_filename(generation::from_value(6), component_type::TemporaryTOC), false);
-        require_exist(gen_filename(generation::from_value(6), component_type::Data), false);
-        require_exist(gen_filename(generation::from_value(7), component_type::TemporaryTOC), false);
+        require_exist(gen_filename(generation_from_value(6), component_type::TemporaryTOC), false);
+        require_exist(gen_filename(generation_from_value(6), component_type::Data), false);
+        require_exist(gen_filename(generation_from_value(7), component_type::TemporaryTOC), false);
         require_exist(pending_delete_dir + "/sstables-6-8.log", false);
     }, db_cfg_ptr).get();
 }

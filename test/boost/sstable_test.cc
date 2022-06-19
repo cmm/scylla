@@ -38,10 +38,10 @@ bytes as_bytes(const sstring& s) {
     return { reinterpret_cast<const int8_t*>(s.data()), s.size() };
 }
 
-generation::type gen1{1};
-generation::type gen2{2};
+generation_type gen1{1};
+generation_type gen2{2};
 
-future<> test_using_working_sst(schema_ptr s, sstring dir, generation::type gen) {
+future<> test_using_working_sst(schema_ptr s, sstring dir, generation_type gen) {
     return test_env::do_with([s = std::move(s), dir = std::move(dir), gen] (test_env& env) {
         return env.working_sst(std::move(s), std::move(dir), gen);
     });
@@ -66,7 +66,7 @@ SEASTAR_TEST_CASE(composite_index) {
 
 template<typename Func>
 inline auto
-test_using_reusable_sst(schema_ptr s, sstring dir, generation::type gen, Func&& func) {
+test_using_reusable_sst(schema_ptr s, sstring dir, generation_type gen, Func&& func) {
     return test_env::do_with([s = std::move(s), dir = std::move(dir), gen, func = std::move(func)] (test_env& env) {
         return env.reusable_sst(std::move(s), std::move(dir), gen).then([&env, func = std::move(func)] (sstable_ptr sst) mutable {
             return func(env, std::move(sst));
@@ -96,7 +96,7 @@ SEASTAR_TEST_CASE(composite_index_read) {
 }
 
 template<uint64_t Position, uint64_t EntryPosition, uint64_t EntryKeySize>
-future<> summary_query(schema_ptr schema, sstring path, generation::type generation) {
+future<> summary_query(schema_ptr schema, sstring path, generation_type generation) {
     return test_using_reusable_sst(std::move(schema), path, generation, [] (test_env& env, sstable_ptr ptr) {
         return sstables::test(ptr).read_summary_entry(Position).then([ptr] (auto entry) {
             BOOST_REQUIRE(entry.position == EntryPosition);
@@ -107,7 +107,7 @@ future<> summary_query(schema_ptr schema, sstring path, generation::type generat
 }
 
 template<uint64_t Position, uint64_t EntryPosition, uint64_t EntryKeySize>
-future<> summary_query_fail(schema_ptr schema, sstring path, generation::type generation) {
+future<> summary_query_fail(schema_ptr schema, sstring path, generation_type generation) {
     return summary_query<Position, EntryPosition, EntryKeySize>(std::move(schema), path, generation).then_wrapped([] (auto fut) {
         try {
             fut.get();
@@ -131,11 +131,11 @@ SEASTAR_TEST_CASE(small_summary_query_negative_fail) {
 }
 
 SEASTAR_TEST_CASE(big_summary_query_0) {
-    return summary_query<0, 0, 182>(uncompressed_schema(), "test/resource/sstables/bigsummary", generation::from_value(76));
+    return summary_query<0, 0, 182>(uncompressed_schema(), "test/resource/sstables/bigsummary", generation_from_value(76));
 }
 
 SEASTAR_TEST_CASE(big_summary_query_32) {
-    return summary_query<32, 0xc4000, 182>(uncompressed_schema(), "test/resource/sstables/bigsummary", generation::from_value(76));
+    return summary_query<32, 0xc4000, 182>(uncompressed_schema(), "test/resource/sstables/bigsummary", generation_from_value(76));
 }
 
 // The following two files are just a copy of uncompressed's 1. But the Summary
@@ -173,9 +173,9 @@ SEASTAR_TEST_CASE(missing_summary_first_last_sane) {
     });
 }
 
-static future<sstable_ptr> do_write_sst(test_env& env, schema_ptr schema, sstring load_dir, sstring write_dir, generation::type generation) {
+static future<sstable_ptr> do_write_sst(test_env& env, schema_ptr schema, sstring load_dir, sstring write_dir, generation_type generation) {
     return env.reusable_sst(std::move(schema), load_dir, generation).then([write_dir, generation] (sstable_ptr sst) {
-        sstables::test(sst).change_generation_number(generation::from_value(generation::value(generation) + 1));
+        sstables::test(sst).change_generation_number(generation_from_value(generation_value(generation) + 1));
         sstables::test(sst).change_dir(write_dir);
         auto fut = sstables::test(sst).store();
         return std::move(fut).then([sst = std::move(sst)] {
@@ -184,7 +184,7 @@ static future<sstable_ptr> do_write_sst(test_env& env, schema_ptr schema, sstrin
     });
 }
 
-static future<> write_sst_info(schema_ptr schema, sstring load_dir, sstring write_dir, generation::type generation) {
+static future<> write_sst_info(schema_ptr schema, sstring load_dir, sstring write_dir, generation_type generation) {
     return test_env::do_with([schema = std::move(schema), load_dir = std::move(load_dir), write_dir = std::move(write_dir), generation] (test_env& env) {
         return do_write_sst(env, std::move(schema), load_dir, write_dir, generation).then([] (auto ptr) { return make_ready_future<>(); });
     });
@@ -210,7 +210,7 @@ static future<std::pair<bufptr_t, size_t>> read_file(sstring file_path)
 
 struct sstdesc {
     sstring dir;
-    generation::type gen;
+    generation_type gen;
 };
 
 static future<> compare_files(sstdesc file1, sstdesc file2, component_type component) {
@@ -413,7 +413,7 @@ SEASTAR_TEST_CASE(find_key_composite) {
 }
 
 SEASTAR_TEST_CASE(all_in_place) {
-    return test_using_reusable_sst(uncompressed_schema(), "test/resource/sstables/bigsummary", generation::from_value(76), [] (auto& env, auto sstp) {
+    return test_using_reusable_sst(uncompressed_schema(), "test/resource/sstables/bigsummary", generation_from_value(76), [] (auto& env, auto sstp) {
         auto& summary = sstables::test(sstp)._summary();
 
         int idx = 0;
@@ -458,7 +458,7 @@ SEASTAR_TEST_CASE(not_find_key_composite_bucket0) {
 
 // See CASSANDRA-7593. This sstable writes 0 in the range_start. We need to handle that case as well
 SEASTAR_TEST_CASE(wrong_range) {
-    return test_using_reusable_sst(uncompressed_schema(), "test/resource/sstables/wrongrange", generation::from_value(114), [] (auto& env, auto sstp) {
+    return test_using_reusable_sst(uncompressed_schema(), "test/resource/sstables/wrongrange", generation_from_value(114), [] (auto& env, auto sstp) {
         return do_with(dht::partition_range::make_singular(make_dkey(uncompressed_schema(), "todata")), [&env, sstp] (auto& range) {
             auto s = columns_schema();
             return with_closeable(sstp->make_reader(s, env.make_reader_permit(), range, s->full_slice()), [sstp, s] (auto& rd) {
@@ -471,7 +471,7 @@ SEASTAR_TEST_CASE(wrong_range) {
 }
 
 static future<>
-test_sstable_exists(sstring dir, generation::type generation, bool exists) {
+test_sstable_exists(sstring dir, generation_type generation, bool exists) {
     auto file_path = sstable::filename(dir, "ks", "cf", la, generation, big, component_type::Data);
     return open_file_dma(file_path, open_flags::ro).then_wrapped([exists] (future<file> f) {
         if (exists) {
@@ -555,7 +555,7 @@ static schema_ptr large_partition_schema() {
 static future<shared_sstable> load_large_partition_sst(test_env& env, const sstables::sstable::version_types version) {
     auto s = large_partition_schema();
     auto dir = get_test_dir("large_partition", s);
-    return env.reusable_sst(std::move(s), std::move(dir), generation::from_value(3), version);
+    return env.reusable_sst(std::move(s), std::move(dir), generation_from_value(3), version);
 }
 
 // This is a rudimentary test that reads an sstable exported from Cassandra

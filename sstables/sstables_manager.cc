@@ -35,7 +35,7 @@ const utils::UUID& sstables_manager::get_local_host_id() const {
 
 shared_sstable sstables_manager::make_sstable(schema_ptr schema,
         sstring dir,
-        generation::type generation,
+        generation_type generation,
         sstable_version_types v,
         sstable_format_types f,
         gc_clock::time_point now,

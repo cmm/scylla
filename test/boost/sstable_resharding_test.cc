@@ -72,10 +72,10 @@ void run_sstable_resharding_test() {
                 mt->apply(std::move(m));
             }
         }
-        auto sst = env.make_sstable(s, tmp.path().string(), generation::from_value(0), version, sstables::sstable::format_types::big);
+        auto sst = env.make_sstable(s, tmp.path().string(), generation_from_value(0), version, sstables::sstable::format_types::big);
         write_memtable_to_sstable_for_test(*mt, sst).get();
     }
-    auto sst = env.reusable_sst(s, tmp.path().string(), generation::from_value(0), version, sstables::sstable::format_types::big).get0();
+    auto sst = env.reusable_sst(s, tmp.path().string(), generation_from_value(0), version, sstables::sstable::format_types::big).get0();
 
     // FIXME: sstable write has a limitation in which it will generate sharding metadata only
     // for a single shard. workaround that by setting shards manually. from this test perspective,
@@ -152,7 +152,7 @@ SEASTAR_TEST_CASE(sstable_is_shared_correctness) {
         {
             auto s = get_schema();
             auto sst_gen = [&env, s, &tmp, gen, version]() mutable {
-                return env.make_sstable(s, tmp.path().string(), generation::from_value((*gen)++), version, big);
+                return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), version, big);
             };
 
             auto tokens = token_generation_for_shard(smp::count * 10, this_shard_id(), cfg->murmur3_partitioner_ignore_msb_bits());
@@ -170,7 +170,7 @@ SEASTAR_TEST_CASE(sstable_is_shared_correctness) {
         {
             auto single_sharded_s = get_schema(1, cfg->murmur3_partitioner_ignore_msb_bits());
             auto sst_gen = [&env, single_sharded_s, &tmp, gen, version]() mutable {
-                return env.make_sstable(single_sharded_s, tmp.path().string(), generation::from_value((*gen)++), version, big);
+                return env.make_sstable(single_sharded_s, tmp.path().string(), generation_from_value((*gen)++), version, big);
             };
 
             auto tokens = token_generation_for_shard(10, this_shard_id(), cfg->murmur3_partitioner_ignore_msb_bits());

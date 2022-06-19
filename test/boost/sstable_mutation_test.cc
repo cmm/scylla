@@ -41,9 +41,9 @@
 using namespace sstables;
 using namespace std::chrono_literals;
 
-generation::type gen0{0};
-generation::type gen1{1};
-generation::type gen2{2};
+generation_type gen0{0};
+generation_type gen1{1};
+generation_type gen2{2};
 
 SEASTAR_TEST_CASE(nonexistent_key) {
   return test_env::do_with_async([] (test_env& env) {
@@ -138,7 +138,7 @@ SEASTAR_TEST_CASE(uncompressed_4) {
 // FIXME: we are lacking a full deletion test
 template <int Generation>
 future<mutation> generate_clustered(sstables::test_env& env, bytes&& key) {
-    return env.reusable_sst(complex_schema(), "test/resource/sstables/complex", generation::from_value(Generation)).then([&env, k = std::move(key)] (auto sstp) mutable {
+    return env.reusable_sst(complex_schema(), "test/resource/sstables/complex", generation_from_value(Generation)).then([&env, k = std::move(key)] (auto sstp) mutable {
         return do_with(dht::partition_range::make_singular(make_dkey(complex_schema(), std::move(k))), [&env, sstp] (auto& pr) {
             auto s = complex_schema();
             return with_closeable(sstp->make_reader(s, env.make_reader_permit(), pr, s->full_slice()), [sstp, s] (auto& rd) {
@@ -565,7 +565,7 @@ static schema_ptr tombstone_overlap_schema() {
 }
 
 
-static future<sstable_ptr> ka_sst(sstables::test_env& env, schema_ptr schema, sstring dir, generation::type generation) {
+static future<sstable_ptr> ka_sst(sstables::test_env& env, schema_ptr schema, sstring dir, generation_type generation) {
     auto sst = env.make_sstable(std::move(schema), dir, generation, sstables::sstable::version_types::ka, big);
     auto fut = sst->load();
     return std::move(fut).then([sst = std::move(sst)] {
@@ -646,7 +646,7 @@ SEASTAR_TEST_CASE(tombstone_in_tombstone) {
 // CQL, but we saw a similar thing is a real use case.
 SEASTAR_TEST_CASE(range_tombstone_reading) {
   return test_env::do_with_async([] (test_env& env) {
-    ka_sst(env, tombstone_overlap_schema(), "test/resource/sstables/tombstone_overlap", generation::from_value(4)).then([&env] (auto sstp) {
+    ka_sst(env, tombstone_overlap_schema(), "test/resource/sstables/tombstone_overlap", generation_from_value(4)).then([&env] (auto sstp) {
         auto s = tombstone_overlap_schema();
         return with_closeable(sstp->make_reader(s, env.make_reader_permit(), query::full_partition_range, s->full_slice()), [sstp, s] (auto& reader) {
             return repeat([sstp, s, &reader] {
@@ -725,7 +725,7 @@ static schema_ptr tombstone_overlap_schema2() {
 }
 SEASTAR_TEST_CASE(tombstone_in_tombstone2) {
   return test_env::do_with_async([] (test_env& env) {
-    ka_sst(env, tombstone_overlap_schema2(), "test/resource/sstables/tombstone_overlap", generation::from_value(3)).then([&env] (auto sstp) {
+    ka_sst(env, tombstone_overlap_schema2(), "test/resource/sstables/tombstone_overlap", generation_from_value(3)).then([&env] (auto sstp) {
         auto s = tombstone_overlap_schema2();
         return with_closeable(sstp->make_reader(s, env.make_reader_permit(), query::full_partition_range, s->full_slice()), [sstp, s] (auto& reader) {
             return repeat([sstp, s, &reader] {
@@ -808,7 +808,7 @@ static schema_ptr buffer_overflow_schema() {
 SEASTAR_TEST_CASE(buffer_overflow) {
   return test_env::do_with_async([] (test_env& env) {
     auto s = buffer_overflow_schema();
-    auto sstp = ka_sst(env, s, "test/resource/sstables/buffer_overflow", generation::from_value(5)).get0();
+    auto sstp = ka_sst(env, s, "test/resource/sstables/buffer_overflow", generation_from_value(5)).get0();
     auto r = sstp->make_reader(s, env.make_reader_permit(), query::full_partition_range, s->full_slice());
     auto pk1 = partition_key::from_exploded(*s, { int32_type->decompose(4) });
     auto dk1 = dht::decorate_key(*s, pk1);
@@ -1118,8 +1118,8 @@ SEASTAR_TEST_CASE(test_promoted_index_repeats_open_tombstones) {
         auto dir = tmpdir();
         int id = 0;
         for (auto& compact : { schema_builder::compact_storage::no, schema_builder::compact_storage::yes }) {
-            generation::type generation{id++};
-            schema_builder builder("ks", format("cf{:d}", generation::value(generation)));
+            generation_type generation{id++};
+            schema_builder builder("ks", format("cf{:d}", generation_value(generation)));
             builder.with_column("p", utf8_type, column_kind::partition_key);
             builder.with_column("c1", bytes_type, column_kind::clustering_key);
             builder.with_column("v", int32_type);
