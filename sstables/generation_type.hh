@@ -17,34 +17,41 @@
 
 namespace sstables {
 
-using generation_value_type = int64_t;
-
-struct generation_type {
-    generation_value_type value;
-    generation_type() noexcept = default;
-    explicit constexpr generation_type(generation_value_type value) noexcept: value(value) {}
-    constexpr bool operator==(const generation_type& other) const noexcept { return value == other.value; }
-    constexpr std::strong_ordering operator<=>(const generation_type& other) const noexcept { return value <=> other.value; }
+template <typename V>
+struct generation_wrapper {
+    using value_type = V;
+private:
+    V _value;
+public:
+    generation_wrapper() noexcept = default;
+    explicit constexpr generation_wrapper(V value) noexcept: _value(value) {}
+    constexpr V value() const noexcept { return _value; }
+    constexpr bool operator==(const generation_wrapper& other) const noexcept { return _value == other._value; }
+    constexpr std::strong_ordering operator<=>(const generation_wrapper& other) const noexcept { return _value <=> other._value; }
 };
+
+using generation_type = generation_wrapper<int64_t>;
+using generation_value_type = generation_type::value_type;
 
 constexpr generation_type generation_from_value(generation_value_type value) {
     return generation_type{value};
 }
-constexpr generation_value_type generation_value(generation_type generation) {
-    return generation.value;
+template <typename V>
+constexpr V generation_value(generation_wrapper<V> generation) {
+    return generation.value();
 }
 
 }; // namespace sstables
 
 namespace seastar {
-template <typename string_type = sstring>
-string_type to_sstring(sstables::generation_type generation) {
+template <typename V, typename string_type = sstring>
+string_type to_sstring(sstables::generation_wrapper<V> generation) {
     return to_sstring(sstables::generation_value(generation));
 }
 }; // namespace seastar
 
-// XXX should somehow consume and forward any format specs valid for value_type
-template <> struct fmt::formatter<sstables::generation_type> {
+template <typename V>
+struct fmt::formatter<sstables::generation_wrapper<V>> {
     constexpr auto parse(format_parse_context& ctx) {
         return ctx.end();
     }
@@ -54,20 +61,23 @@ template <> struct fmt::formatter<sstables::generation_type> {
     }
 };
 
-template <> class std::numeric_limits<sstables::generation_type> : public numeric_limits<sstables::generation_value_type> {
-    using value_limits = numeric_limits<sstables::generation_value_type>;
+template <typename V>
+class std::numeric_limits<sstables::generation_wrapper<V>> : public numeric_limits<V> {
+    using value_limits = numeric_limits<V>;
 public:
-    static constexpr sstables::generation_type min() noexcept { return sstables::generation_from_value(value_limits::min()); }
-    static constexpr sstables::generation_type max() noexcept { return sstables::generation_from_value(value_limits::max()); }
-    static constexpr sstables::generation_type lowest() noexcept { return sstables::generation_from_value(value_limits::lowest()); }
+    static constexpr sstables::generation_wrapper<V> min() noexcept { return sstables::generation_from_value(value_limits::min()); }
+    static constexpr sstables::generation_wrapper<V> max() noexcept { return sstables::generation_from_value(value_limits::max()); }
+    static constexpr sstables::generation_wrapper<V> lowest() noexcept { return sstables::generation_from_value(value_limits::lowest()); }
 };
 
-template <> struct std::hash<sstables::generation_type> {
-    constexpr size_t operator()(const sstables::generation_type& generation) const noexcept {
-        return hash<sstables::generation_value_type>{}(sstables::generation_value(generation));
+template <typename V>
+struct std::hash<sstables::generation_wrapper<V>> {
+    constexpr size_t operator()(sstables::generation_wrapper<V> generation) const noexcept {
+        return hash<V>{}(sstables::generation_value(generation));
     }
 };
 
-static inline std::ostream& operator<<(std::ostream& s, sstables::generation_type generation) {
+template <typename V>
+std::ostream& operator<<(std::ostream& s, sstables::generation_wrapper<V> generation) {
     return s << sstables::generation_value(generation);
 }
