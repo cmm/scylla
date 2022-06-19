@@ -673,10 +673,10 @@ struct sst_factory {
     sstables::test_env& env;
     schema_ptr s;
     sstring path;
-    unsigned gen;
+    generation_value_type gen;
     uint32_t level;
 
-    sst_factory(sstables::test_env& env, schema_ptr s, const sstring& path, unsigned gen, int level)
+    sst_factory(sstables::test_env& env, schema_ptr s, const sstring& path, generation_value_type gen, int level)
         : env(env)
         , s(s)
         , path(path)
@@ -1022,7 +1022,7 @@ sstables::shared_sstable create_sstable(sstables::test_env& env, simple_schema& 
 static
 sstables::shared_sstable create_sstable(sstables::test_env& env, schema_ptr s, std::vector<mutation> mutations) {
     static thread_local auto tmp = tmpdir();
-    static int gen = 0;
+    static generation_value_type gen = 0;
     return make_sstable_containing([&] {
         return env.make_sstable(s, tmp.path().string(), generation_from_value(gen++));
     }, mutations);

@@ -9,15 +9,17 @@
 #pragma once
 
 #include <cstdint>
-#include <atomic>
-#include <compare>
-#include <limits>
+#include <concepts>
 #include <fmt/core.h>
 #include <seastar/core/sstring.hh>
 
 namespace sstables {
 
 template <typename V>
+concept GenerationValue = std::copyable<V> && std::totally_ordered<V>;
+
+template <typename V>
+requires GenerationValue<V>
 struct generation_wrapper {
     using value_type = V;
 private:
@@ -27,7 +29,11 @@ public:
     explicit constexpr generation_wrapper(V value) noexcept: _value(value) {}
     constexpr V value() const noexcept { return _value; }
     constexpr bool operator==(const generation_wrapper& other) const noexcept { return _value == other._value; }
-    constexpr std::strong_ordering operator<=>(const generation_wrapper& other) const noexcept { return _value <=> other._value; }
+    constexpr bool operator!=(const generation_wrapper& other) const noexcept { return !(*this == other); }
+    constexpr bool operator<(const generation_wrapper& other) const noexcept { return _value < other._value; }
+    constexpr bool operator>(const generation_wrapper& other) const noexcept { return other < *this; }
+    constexpr bool operator<=(const generation_wrapper& other) const noexcept { return !(other < *this); }
+    constexpr bool operator>=(const generation_wrapper& other) const noexcept { return !(*this < other); }
 };
 
 using generation_type = generation_wrapper<int64_t>;
@@ -59,15 +65,6 @@ struct fmt::formatter<sstables::generation_wrapper<V>> {
     auto format(const sstables::generation_type& generation, FormatContext& ctx) {
         return format_to(ctx.out(), "{}", sstables::generation_value(generation));
     }
-};
-
-template <typename V>
-class std::numeric_limits<sstables::generation_wrapper<V>> : public numeric_limits<V> {
-    using value_limits = numeric_limits<V>;
-public:
-    static constexpr sstables::generation_wrapper<V> min() noexcept { return sstables::generation_from_value(value_limits::min()); }
-    static constexpr sstables::generation_wrapper<V> max() noexcept { return sstables::generation_from_value(value_limits::max()); }
-    static constexpr sstables::generation_wrapper<V> lowest() noexcept { return sstables::generation_from_value(value_limits::lowest()); }
 };
 
 template <typename V>

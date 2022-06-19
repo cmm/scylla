@@ -73,7 +73,7 @@ make_sstable_for_this_shard(std::function<sstables::shared_sstable()> sst_factor
 /// Arguments passed to the function are passed to table::make_sstable
 template <typename... Args>
 sstables::shared_sstable
-make_sstable_for_all_shards(replica::database& db, replica::table& table, fs::path sstdir, sstables::generation_type generation) {
+make_sstable_for_all_shards(replica::database& db, replica::table& table, fs::path sstdir, sstables::generation_value_type generation) {
     // Unlike the previous helper, we'll assume we're in a thread here. It's less flexible
     // but the users are usually in a thread, and rewrite_toc_without_scylla_component requires
     // a thread. We could fix that, but deferring that for now.
@@ -87,7 +87,7 @@ make_sstable_for_all_shards(replica::database& db, replica::table& table, fs::pa
         m.set_clustered_cell(clustering_key::make_empty(), bytes("c"), data_value(int32_t(0)), api::timestamp_type(0));
         mt->apply(std::move(m));
     }
-    auto sst = table.make_sstable(sstdir.native(), generation_from_value(generation_value(generation) + 1),
+    auto sst = table.make_sstable(sstdir.native(), generation_from_value(generation + 1),
             sstables::get_highest_sstable_version(), sstables::sstable::format_types::big);
     write_memtable_to_sstable(*mt, sst, table.get_sstables_manager().configure_writer("test")).get();
     mt->clear_gently().get();
@@ -554,7 +554,7 @@ SEASTAR_TEST_CASE(sstable_directory_shared_sstables_reshard_correctly) {
         unsigned num_sstables = 10 * smp::count;
         generation_value_type generation{0};
         for (unsigned nr = 0; nr < num_sstables; ++nr) {
-            make_sstable_for_all_shards(e.db().local(), cf, upload_path.native(), generation_from_value(generation++));
+            make_sstable_for_all_shards(e.db().local(), cf, upload_path.native(), generation++);
         }
 
       with_sstable_directory(upload_path, 1,
@@ -601,9 +601,9 @@ SEASTAR_TEST_CASE(sstable_directory_shared_sstables_reshard_distributes_well_eve
         }).get();
 
         unsigned num_sstables = 10 * smp::count;
-        auto generation = 0;
+        generation_value_type generation = 0;
         for (unsigned nr = 0; nr < num_sstables; ++nr) {
-            make_sstable_for_all_shards(e.db().local(), cf, upload_path.native(), generation_from_value(generation++ * smp::count));
+            make_sstable_for_all_shards(e.db().local(), cf, upload_path.native(), generation++ * smp::count);
         }
 
       with_sstable_directory(upload_path, 1,
@@ -650,9 +650,9 @@ SEASTAR_TEST_CASE(sstable_directory_shared_sstables_reshard_respect_max_threshol
         }).get();
 
         unsigned num_sstables = (cf.schema()->max_compaction_threshold() + 1) * smp::count;
-        auto generation = 0;
+        generation_value_type generation = 0;
         for (unsigned nr = 0; nr < num_sstables; ++nr) {
-            make_sstable_for_all_shards(e.db().local(), cf, upload_path.native(), generation_from_value(generation++));
+            make_sstable_for_all_shards(e.db().local(), cf, upload_path.native(), generation++);
         }
 
       with_sstable_directory(upload_path, 1,

@@ -413,7 +413,7 @@ static future<std::vector<generation_value_type>> compact_sstables(test_env& env
             });
         });
     }).then([&env, cf, sstables, new_generation, generations, strategy, created, min_sstable_size, s, tmpdir_path] () mutable {
-        auto generation = make_lw_shared<unsigned long>(new_generation);
+        auto generation = make_lw_shared<generation_value_type>(new_generation);
         auto new_sstable = [&env, generation, created, s, tmpdir_path] {
             auto gen = (*generation)++;
             created->push_back(gen);
@@ -877,7 +877,7 @@ SEASTAR_TEST_CASE(leveled_07) {
   return test_env::do_with([] (test_env& env) {
     column_family_for_tests cf(env.manager());
 
-    for (auto i = 0; i < leveled_manifest::MAX_COMPACTING_L0*2; i++) {
+    for (generation_value_type i = 0; i < leveled_manifest::MAX_COMPACTING_L0*2; i++) {
         add_sstable_for_leveled_test(env, cf, generation_from_value(i), 1024*1024, /*level*/0, "a", "a", i /* max timestamp */);
     }
     auto candidates = get_candidates_for_leveled_strategy(*cf);
@@ -911,7 +911,7 @@ SEASTAR_TEST_CASE(leveled_invariant_fix) {
     // add non overlapping with min token to be discarded by strategy
     add_sstable_for_leveled_test(env, cf, generation_from_value(0), sstable_max_size, /*level*/1, min_key, min_key);
 
-    for (auto i = 1; i < sstables_no-1; i++) {
+    for (generation_value_type i = 1; i < sstables_no-1; i++) {
         add_sstable_for_leveled_test(env, cf, generation_from_value(i), sstable_max_size, /*level*/1, key_and_token_pair[i].first, key_and_token_pair[i].first);
     }
     // add large token span sstable into level 1, which overlaps with all sstables added in loop above.
@@ -951,7 +951,7 @@ SEASTAR_TEST_CASE(leveled_stcs_on_L0) {
     auto l0_sstables_size = (sstable_max_size_in_mb*1024*1024)/(l0_sstables_no+1);
 
     add_sstable_for_leveled_test(env, cf, generation_from_value(0), sstable_max_size_in_mb*1024*1024, /*level*/1, key_and_token_pair[0].first, key_and_token_pair[0].first);
-    for (auto gen = 0; gen < l0_sstables_no; gen++) {
+    for (generation_value_type gen = 0; gen < l0_sstables_no; gen++) {
         add_sstable_for_leveled_test(env, cf, generation_from_value(gen+1), l0_sstables_size, /*level*/0, key_and_token_pair[0].first, key_and_token_pair[0].first);
     }
     auto candidates = get_candidates_for_leveled_strategy(*cf);
@@ -1059,7 +1059,7 @@ SEASTAR_TEST_CASE(tombstone_purge_test) {
         auto s = builder.build();
 
         auto tmp = tmpdir();
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
         };
 
@@ -1351,7 +1351,7 @@ SEASTAR_TEST_CASE(test_sstable_max_local_deletion_time_2) {
                 auto sst2 = get_usable_sst(*mt, 55).get0();
                 BOOST_REQUIRE(now.time_since_epoch().count() == sst2->get_stats_metadata().max_local_deletion_time);
 
-                auto creator = [&env, s, tmpdir_path, version, gen = make_lw_shared<unsigned>(56)] { return env.make_sstable(s, tmpdir_path, generation_from_value((*gen)++), version, big); };
+                auto creator = [&env, s, tmpdir_path, version, gen = make_lw_shared<generation_value_type>(56)] { return env.make_sstable(s, tmpdir_path, generation_from_value((*gen)++), version, big); };
                 auto info = compact_sstables(cf.get_compaction_manager(), sstables::compaction_descriptor({sst1, sst2}, default_priority_class()), *cf, creator).get0();
                 BOOST_REQUIRE(info.new_sstables.size() == 1);
                 BOOST_REQUIRE(((now + gc_clock::duration(100)).time_since_epoch().count()) ==
@@ -1422,7 +1422,7 @@ SEASTAR_TEST_CASE(compaction_with_fully_expired_table) {
         auto tmp = tmpdir();
         auto key = partition_key::from_exploded(*s, {to_bytes("key1")});
         auto c_key = clustering_key_prefix::from_exploded(*s, {to_bytes("c1")});
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
         };
 
@@ -1466,7 +1466,7 @@ SEASTAR_TEST_CASE(basic_date_tiered_strategy_test) {
     int64_t timestamp_for_now = now.time_since_epoch().count() * 1000;
     int64_t timestamp_for_past_hour = past_hour.time_since_epoch().count() * 1000;
 
-    for (auto i = 1; i <= min_threshold; i++) {
+    for (generation_value_type i = 1; i <= min_threshold; i++) {
         auto sst = add_sstable_for_overlapping_test(env, cf, generation_from_value(i), "a", "a",
             build_stats(timestamp_for_now, timestamp_for_now, std::numeric_limits<int32_t>::max()));
         candidates.push_back(sst);
@@ -1506,7 +1506,7 @@ SEASTAR_TEST_CASE(date_tiered_strategy_test_2) {
     int min_threshold = cf->schema()->min_compaction_threshold();
 
     // add sstables that belong to same time window until min threshold is satisfied.
-    for (auto i = 1; i <= min_threshold; i++) {
+    for (generation_value_type i = 1; i <= min_threshold; i++) {
         auto sst = add_sstable_for_overlapping_test(env, cf, generation_from_value(i), "a", "a",
             build_stats(timestamp, timestamp, std::numeric_limits<int32_t>::max()));
         candidates.push_back(sst);
@@ -1616,7 +1616,7 @@ SEASTAR_TEST_CASE(time_window_strategy_correctness_test) {
                 .with_column("value", int32_type).build();
 
         auto tmp = tmpdir();
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
         };
 
@@ -1719,7 +1719,7 @@ SEASTAR_TEST_CASE(time_window_strategy_size_tiered_behavior_correctness) {
                 .with_column("value", int32_type).build();
 
         auto tmp = tmpdir();
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
         };
 
@@ -1864,7 +1864,7 @@ SEASTAR_TEST_CASE(size_tiered_beyond_max_threshold_test) {
     std::vector<sstables::shared_sstable> candidates;
     int max_threshold = cf->schema()->max_compaction_threshold();
     candidates.reserve(max_threshold+1);
-    for (auto i = 0; i < (max_threshold+1); i++) { // (max_threshold+1) sstables of similar size
+    for (generation_value_type i = 0; i < (max_threshold+1); i++) { // (max_threshold+1) sstables of similar size
         auto sst = env.make_sstable(cf.schema(), "", generation_from_value(i), la, big);
         sstables::test(sst).set_data_file_size(1);
         candidates.push_back(std::move(sst));
@@ -1925,7 +1925,7 @@ SEASTAR_TEST_CASE(sstable_expired_data_ratio) {
 
         column_family_for_tests cf(env.manager(), s);
         auto close_cf = deferred_stop(cf);
-        auto creator = [&, gen = make_lw_shared<unsigned>(2)] {
+        auto creator = [&, gen = make_lw_shared<generation_value_type>(2)] {
             auto sst = env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
             return sst;
         };
@@ -1995,7 +1995,7 @@ SEASTAR_TEST_CASE(compaction_correctness_with_partitioned_sstable_set) {
         auto s = builder.build();
 
         auto tmp = tmpdir();
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             auto sst = env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
             return sst;
         };
@@ -2107,7 +2107,7 @@ SEASTAR_TEST_CASE(sstable_cleanup_correctness_test) {
                     .with_column("value", int32_type).build();
 
             auto tmp = tmpdir();
-            auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+            auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
                 return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
             };
 
@@ -2254,7 +2254,7 @@ SEASTAR_TEST_CASE(sstable_scrub_validate_mode_test) {
             auto permit = env.make_reader_permit();
 
             auto tmp = tmpdir();
-            auto sst_gen = [&env, schema, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+            auto sst_gen = [&env, schema, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
                 return env.make_sstable(schema, tmp.path().string(), generation_from_value((*gen)++));
             };
 
@@ -2455,7 +2455,7 @@ SEASTAR_TEST_CASE(sstable_scrub_skip_mode_test) {
             auto permit = env.make_reader_permit();
 
             auto tmp = tmpdir();
-            auto sst_gen = [&env, schema, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+            auto sst_gen = [&env, schema, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
                 return env.make_sstable(schema, tmp.path().string(), generation_from_value((*gen)++));
             };
 
@@ -2550,7 +2550,7 @@ SEASTAR_TEST_CASE(sstable_scrub_segregate_mode_test) {
             auto permit = env.make_reader_permit();
 
             auto tmp = tmpdir();
-            auto sst_gen = [&env, schema, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+            auto sst_gen = [&env, schema, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
                 return env.make_sstable(schema, tmp.path().string(), generation_from_value((*gen)++));
             };
 
@@ -2662,7 +2662,7 @@ SEASTAR_TEST_CASE(sstable_scrub_quarantine_mode_test) {
                 auto permit = env.make_reader_permit();
 
                 auto tmp = tmpdir();
-                auto sst_gen = [&env, schema, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+                auto sst_gen = [&env, schema, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
                     return env.make_sstable(schema, tmp.path().string(), generation_from_value((*gen)++));
                 };
 
@@ -3007,7 +3007,7 @@ SEASTAR_TEST_CASE(sstable_run_based_compaction_test) {
         auto s = builder.build();
 
         auto tmp = tmpdir();
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             auto sst = env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
             return sst;
         };
@@ -3142,7 +3142,7 @@ SEASTAR_TEST_CASE(compaction_strategy_aware_major_compaction_test) {
                 .with_column("value", int32_type).build();
 
         auto tmp = tmpdir();
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
         };
         auto make_insert = [&] (partition_key key) {
@@ -3188,7 +3188,7 @@ SEASTAR_TEST_CASE(backlog_tracker_correctness_after_changing_compaction_strategy
         auto s = builder.build();
 
         auto tmp = make_lw_shared<tmpdir>();
-        auto sst_gen = [&env, s, tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             auto sst = env.make_sstable(s, tmp->path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
             return sst;
         };
@@ -3308,7 +3308,7 @@ SEASTAR_TEST_CASE(purged_tombstone_consumer_sstable_test) {
         auto s = builder.build();
 
         auto tmp = tmpdir();
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
         };
 
@@ -3468,7 +3468,7 @@ SEASTAR_TEST_CASE(incremental_compaction_data_resurrection_test) {
         auto s = builder.build();
 
         auto tmp = tmpdir();
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
         };
 
@@ -3594,7 +3594,7 @@ SEASTAR_TEST_CASE(twcs_major_compaction_test) {
         auto s = builder.build();
 
         auto tmp = tmpdir();
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
         };
 
@@ -3685,7 +3685,7 @@ SEASTAR_TEST_CASE(autocompaction_control_test) {
         BOOST_REQUIRE(cf->is_auto_compaction_disabled_by_user());
 
         // generate a few sstables
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
         };
         auto make_insert = [&] (partition_key key) {
@@ -3742,7 +3742,7 @@ SEASTAR_TEST_CASE(test_bug_6472) {
         builder.set_gc_grace_seconds(0);
         auto s = builder.build();
 
-        auto sst_gen = [&env, s, tmpdir_path, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, tmpdir_path, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             return env.make_sstable(s, tmpdir_path, generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
         };
 
@@ -3815,7 +3815,7 @@ SEASTAR_TEST_CASE(sstable_needs_cleanup_test) {
 
     auto tokens = token_generation_for_current_shard(10);
 
-    auto sst_gen = [&env, s, gen = make_lw_shared<unsigned>(1)] (sstring first, sstring last) mutable {
+    auto sst_gen = [&env, s, gen = make_lw_shared<generation_value_type>(1)] (sstring first, sstring last) mutable {
         return sstable_for_overlapping_test(env, s, generation_from_value((*gen)++), first, last);
     };
     auto token = [&] (size_t index) -> dht::token {
@@ -3871,7 +3871,7 @@ SEASTAR_TEST_CASE(test_twcs_partition_estimate) {
 
         const auto rows_per_partition = 200;
 
-        auto sst_gen = [&env, s, tmpdir_path, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, tmpdir_path, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             return env.make_sstable(s, tmpdir_path, generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
         };
 
@@ -3935,7 +3935,7 @@ SEASTAR_TEST_CASE(stcs_reshape_test) {
         std::vector<shared_sstable> sstables;
         sstables.reserve(s->max_compaction_threshold());
         auto key_and_token_pair = token_generation_for_current_shard(s->max_compaction_threshold() + 2);
-        for (auto gen = 1; gen <= s->max_compaction_threshold(); gen++) {
+        for (generation_value_type gen = 1; gen <= s->max_compaction_threshold(); gen++) {
             auto sst = env.make_sstable(s, "", generation_from_value(gen));
             sstables::test(sst).set_data_file_size(1);
             sstables::test(sst).set_values(key_and_token_pair[gen - 1].first, key_and_token_pair[gen + 1].first, stats_metadata{});
@@ -3961,7 +3961,7 @@ SEASTAR_TEST_CASE(lcs_reshape_test) {
         // non overlapping
         {
             std::vector <shared_sstable> sstables;
-            for (auto i = 0; i < 256; i++) {
+            for (generation_value_type i = 0; i < 256; i++) {
                 auto sst = env.make_sstable(s, "", generation_from_value(i + 1));
                 auto key = keys[i].first;
                 sstables::test(sst).set_values_for_leveled_strategy(1 /* size */, 0 /* level */, 0 /* max ts */, key, key);
@@ -3973,7 +3973,7 @@ SEASTAR_TEST_CASE(lcs_reshape_test) {
         // all overlapping
         {
             std::vector <shared_sstable> sstables;
-            for (auto i = 0; i < 256; i++) {
+            for (generation_value_type i = 0; i < 256; i++) {
                 auto sst = env.make_sstable(s, "", generation_from_value(i + 1));
                 auto key = keys[0].first;
                 sstables::test(sst).set_values_for_leveled_strategy(1 /* size */, 0 /* level */, 0 /* max ts */, key, key);
@@ -4078,7 +4078,7 @@ SEASTAR_TEST_CASE(test_twcs_compaction_across_buckets) {
             return (gc_clock::now().time_since_epoch() - std::chrono::duration_cast<std::chrono::microseconds>(step)).count();
         };
         auto tmp = tmpdir();
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
         };
         auto tokens = token_generation_for_shard(1, this_shard_id(), test_db_config.murmur3_partitioner_ignore_msb_bits(), smp::count);
@@ -4225,7 +4225,7 @@ SEASTAR_TEST_CASE(twcs_reshape_with_disjoint_set_test) {
 
         auto tmp = tmpdir();
 
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)]() {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)]() {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::sstable::version_types::md, big);
         };
 
@@ -4363,7 +4363,7 @@ SEASTAR_TEST_CASE(stcs_reshape_overlapping_test) {
 
         auto tmp = tmpdir();
 
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)]() {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)]() {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::sstable::version_types::md, big);
         };
 
@@ -4406,7 +4406,7 @@ SEASTAR_TEST_CASE(test_twcs_single_key_reader_filtering) {
         auto s = builder.build();
 
         auto tmp = tmpdir();
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)]() {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)]() {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::sstable::version_types::md, big);
         };
 
@@ -4523,7 +4523,7 @@ SEASTAR_TEST_CASE(max_ongoing_compaction_test) {
             cfg.enable_commitlog = false;
             cfg.enable_incremental_backups = false;
 
-            auto sst_gen = [&env, s, dir = cfg.datadir, gen = make_lw_shared<unsigned>(1)] () mutable {
+            auto sst_gen = [&env, s, dir = cfg.datadir, gen = make_lw_shared<generation_value_type>(1)] () mutable {
                 return env.make_sstable(s, dir, generation_from_value((*gen)++), sstables::sstable::version_types::md, big);
             };
 
@@ -4733,7 +4733,7 @@ SEASTAR_TEST_CASE(twcs_single_key_reader_through_compound_set_test) {
         auto set1 = make_lw_shared<sstable_set>(cs.make_sstable_set(s));
         auto set2 = make_lw_shared<sstable_set>(cs.make_sstable_set(s));
 
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)]() {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)]() {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::sstable::version_types::md, big);
         };
 
@@ -4829,7 +4829,7 @@ SEASTAR_TEST_CASE(simple_backlog_controller_test) {
         compaction_manager::maintenance_scheduling_group msg = { default_scheduling_group(), default_priority_class() };
         auto manager = compaction_manager(csg, msg, available_memory, as);
 
-        auto add_sstable = [&env, &manager, gen = make_lw_shared<unsigned>(1)] (replica::table& t, uint64_t data_size, int level) {
+        auto add_sstable = [&env, &manager, gen = make_lw_shared<generation_value_type>(1)] (replica::table& t, uint64_t data_size, int level) {
             auto sst = env.make_sstable(t.schema(), "", generation_from_value((*gen)++), la, big);
             auto key = make_local_key(t.schema());
             sstables::test(sst).set_values_for_leveled_strategy(data_size, level, 0 /*max ts*/, key, key);

@@ -24,9 +24,9 @@ using namespace std::chrono_literals;
 SEASTAR_TEST_CASE(test_schema_changes) {
   return sstables::test_env::do_with_async([] (sstables::test_env& env) {
     auto dir = tmpdir();
-    int gen = 1;
+    generation_value_type gen = 1;
 
-    std::map<std::tuple<sstables::sstable::version_types, schema_ptr>, std::tuple<shared_sstable, int>> cache;
+    std::map<std::tuple<sstables::sstable::version_types, schema_ptr>, std::tuple<shared_sstable, generation_value_type>> cache;
     for_each_schema_change([&] (schema_ptr base, const std::vector<mutation>& base_mutations,
                                 schema_ptr changed, const std::vector<mutation>& changed_mutations) {
         for (auto version : writable_sstable_versions) {
@@ -50,7 +50,7 @@ SEASTAR_TEST_CASE(test_schema_changes) {
             } else {
                 created_with_base_schema = std::get<shared_sstable>(it->second);
 
-                created_with_changed_schema = env.make_sstable(changed, dir.path().string(), sstables::generation_from_value(std::get<int>(it->second)), version, sstables::sstable::format_types::big);
+                created_with_changed_schema = env.make_sstable(changed, dir.path().string(), sstables::generation_from_value(std::get<generation_value_type>(it->second)), version, sstables::sstable::format_types::big);
                 created_with_changed_schema->load().get();
             }
 

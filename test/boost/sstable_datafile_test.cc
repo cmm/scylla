@@ -2243,7 +2243,7 @@ SEASTAR_TEST_CASE(sstable_tombstone_histogram_test) {
             auto s = builder.build();
 
             auto tmp = tmpdir();
-            auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1), version]() mutable {
+            auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1), version]() mutable {
                 return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), version, big);
             };
 
@@ -2309,7 +2309,7 @@ SEASTAR_TEST_CASE(sstable_owner_shards) {
             BOOST_REQUIRE(m.decorated_key().token() == p.second);
             return m;
         };
-        auto gen = make_lw_shared<unsigned>(1);
+        auto gen = make_lw_shared<generation_value_type>(1);
         auto make_shared_sstable = [&] (std::unordered_set<unsigned> shards, unsigned ignore_msb, unsigned smp_count) {
             auto mut = [&] (auto shard) {
                 auto tokens = token_generation_for_shard(1, shard, ignore_msb, smp_count);
@@ -2377,7 +2377,7 @@ SEASTAR_TEST_CASE(test_summary_entry_spanning_more_keys_than_min_interval) {
         }
 
         auto tmp = tmpdir();
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
         };
         auto sst = make_sstable_containing(sst_gen, mutations);
@@ -2578,7 +2578,7 @@ SEASTAR_TEST_CASE(summary_rebuild_sanity) {
         }
 
         auto tmp = tmpdir();
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
         };
         auto sst = make_sstable_containing(sst_gen, mutations);
@@ -2622,7 +2622,7 @@ SEASTAR_TEST_CASE(sstable_partition_estimation_sanity_test) {
         };
 
         auto tmp = tmpdir();
-        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1)] () mutable {
+        auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1)] () mutable {
             return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), sstables::get_highest_sstable_version(), big);
         };
 
@@ -2665,7 +2665,7 @@ SEASTAR_TEST_CASE(sstable_timestamp_metadata_correcness_with_negative) {
                     .with_column("value", int32_type).build();
 
             auto tmp = tmpdir();
-            auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<unsigned>(1), version]() mutable {
+            auto sst_gen = [&env, s, &tmp, gen = make_lw_shared<generation_value_type>(1), version]() mutable {
                 return env.make_sstable(s, tmp.path().string(), generation_from_value((*gen)++), version, big);
             };
 
@@ -2823,7 +2823,7 @@ SEASTAR_TEST_CASE(test_may_have_partition_tombstones) {
         auto pks = ss.make_pkeys(2);
 
         auto tmp = tmpdir();
-        unsigned gen = 0;
+        generation_value_type gen = 0;
         for (auto version : all_sstable_versions) {
             if (version < sstable_version_types::md) {
                 continue;
@@ -2901,7 +2901,7 @@ SEASTAR_TEST_CASE(test_sstable_origin) {
         auto pk = ss.make_pkey(make_local_key(s));
         auto mut = mutation(s, pk);
         ss.add_row(mut, ss.make_ckey(0), "val");
-        int gen = 1;
+        generation_value_type gen = 1;
         fs::path tmp(tmpdir_path);
 
         for (const auto version : all_sstable_versions) {
@@ -3018,7 +3018,7 @@ SEASTAR_TEST_CASE(test_validate_checksums) {
         const std::map<sstring, sstring> no_compression_params = {};
         const std::map<sstring, sstring> lz4_compression_params = {{compression_parameters::SSTABLE_COMPRESSION, "LZ4Compressor"}};
 
-        int gen = 0;
+        generation_value_type gen = 0;
 
         for (const auto version : writable_sstable_versions) {
             testlog.info("version={}", sstables::to_string(version));

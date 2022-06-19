@@ -35,7 +35,7 @@ SEASTAR_THREAD_TEST_CASE(test_sstable_move) {
     auto env = test_env();
     auto stop_env = defer([&env] { env.stop().get(); });
 
-    int64_t gen = 1;
+    generation_value_type gen = 1;
     auto sst = copy_sst_to_tmpdir(tmp.path(), env, uncompressed_schema(), fs::path(uncompressed_dir()), generation_from_value(gen));
 
     for (auto i = 0; i < 2; i++) {
@@ -87,7 +87,7 @@ SEASTAR_THREAD_TEST_CASE(test_sstable_move_replay) {
     auto env = test_env();
     auto stop_env = defer([&env] { env.stop().get(); });
 
-    int64_t gen = 1;
+    generation_value_type gen = 1;
     auto sst = copy_sst_to_tmpdir(tmp.path(), env, uncompressed_schema(), fs::path(uncompressed_dir()), generation_from_value(gen));
 
     bool done;
@@ -108,7 +108,7 @@ SEASTAR_THREAD_TEST_CASE(test_sstable_move_exists_failure) {
     auto env = test_env();
     auto stop_env = defer([&env] { env.stop().get(); });
 
-    int64_t gen = 1;
+    generation_value_type gen = 1;
     auto src_sst = copy_sst_to_tmpdir(tmp.path(), env, uncompressed_schema(), fs::path(uncompressed_dir()), generation_from_value(gen));
     auto dst_sst = copy_sst_to_tmpdir(tmp.path(), env, uncompressed_schema(), fs::path(uncompressed_dir()), generation_from_value(++gen));
 

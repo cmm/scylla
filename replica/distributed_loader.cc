@@ -316,13 +316,13 @@ distributed_loader::process_upload_dir(distributed<replica::database>& db, distr
         process_sstable_dir(directory).get();
 
         auto generation = highest_generation_seen(directory).get0();
-        auto shard_generation_base = sstables::generation_from_value(sstables::generation_value(generation) / smp::count + 1);
+        auto shard_generation_base = sstables::generation_value(generation) / smp::count + 1;
 
         // We still want to do our best to keep the generation numbers shard-friendly.
         // Each destination shard will manage its own generation counter.
         std::vector<std::atomic<sstables::generation_value_type>> shard_gen(smp::count);
         for (shard_id s = 0; s < smp::count; ++s) {
-            shard_gen[s].store(sstables::generation_value(shard_generation_base) * smp::count + s, std::memory_order_relaxed);
+            shard_gen[s].store(shard_generation_base * smp::count + s, std::memory_order_relaxed);
         }
 
         reshard(directory, db, ks, cf, [&global_table, upload, &shard_gen] (shard_id shard) mutable {
