@@ -25,8 +25,6 @@ struct generation_type {
     explicit constexpr generation_type(generation_value_type value) noexcept: value(value) {}
     constexpr bool operator==(const generation_type& other) const noexcept { return value == other.value; }
     constexpr std::strong_ordering operator<=>(const generation_type& other) const noexcept { return value <=> other.value; }
-    generation_type operator++(int) noexcept { return generation_type{value++}; }
-    generation_type& operator++() noexcept { ++value; return *this; }
 };
 
 constexpr generation_type generation_from_value(generation_value_type value) {

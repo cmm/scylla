@@ -87,7 +87,7 @@ make_sstable_for_all_shards(replica::database& db, replica::table& table, fs::pa
         m.set_clustered_cell(clustering_key::make_empty(), bytes("c"), data_value(int32_t(0)), api::timestamp_type(0));
         mt->apply(std::move(m));
     }
-    auto sst = table.make_sstable(sstdir.native(), generation++,
+    auto sst = table.make_sstable(sstdir.native(), generation_from_value(generation_value(generation) + 1),
             sstables::get_highest_sstable_version(), sstables::sstable::format_types::big);
     write_memtable_to_sstable(*mt, sst, table.get_sstables_manager().configure_writer("test")).get();
     mt->clear_gently().get();
@@ -552,9 +552,9 @@ SEASTAR_TEST_CASE(sstable_directory_shared_sstables_reshard_correctly) {
         }).get();
 
         unsigned num_sstables = 10 * smp::count;
-        generation_type generation{0};
+        generation_value_type generation{0};
         for (unsigned nr = 0; nr < num_sstables; ++nr) {
-            make_sstable_for_all_shards(e.db().local(), cf, upload_path.native(), generation++);
+            make_sstable_for_all_shards(e.db().local(), cf, upload_path.native(), generation_from_value(generation++));
         }
 
       with_sstable_directory(upload_path, 1,

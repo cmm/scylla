@@ -577,7 +577,9 @@ private:
         assert(_sstable_generation);
         // FIXME: better way of ensuring we don't attempt to
         // overwrite an existing table.
-        return sstables::generation_from_value(sstables::generation_value((*_sstable_generation)++) * smp::count + this_shard_id());
+        auto ret = sstables::generation_from_value(sstables::generation_value(*_sstable_generation) * smp::count + this_shard_id());
+        _sstable_generation = sstables::generation_from_value(sstables::generation_value(*_sstable_generation) + 1);
+        return ret;
     }
 
     // inverse of calculate_generation_for_new_table(), used to determine which
