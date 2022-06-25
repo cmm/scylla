@@ -910,7 +910,9 @@ public:
     size_t free_segments() const { return _free_segments; }
 };
 
-class reclaim_timer {
+struct reclaim_timer {
+    using extra_logger = noncopyable_function<void(log_level)>;
+private:
     using clock = utils::coarse_steady_clock;
     struct stats {
         occupancy_stats region_occupancy;
@@ -949,6 +951,7 @@ class reclaim_timer {
     const size_t _segments_to_release;
     const size_t _reserve_goal, _reserve_max;
     tracker::impl* _tracker;
+    extra_logger _extra_logs;
 
     const bool _debug_enabled;
     bool _stall_detected = false;
@@ -963,7 +966,10 @@ class reclaim_timer {
     clock::duration _duration;
 
 public:
-    inline reclaim_timer(const char* name, is_preemptible preemptible, size_t memory_to_release, size_t segments_to_release, tracker::impl* tracker = nullptr);
+    inline reclaim_timer(const char* name, is_preemptible preemptible, size_t memory_to_release, size_t segments_to_release, tracker::impl* tracker, extra_logger extra_logs = [](log_level){});
+    inline reclaim_timer(const char* name, is_preemptible preemptible, size_t memory_to_release, size_t segments_to_release, extra_logger extra_logs = [](log_level){})
+        : reclaim_timer(name, preemptible, memory_to_release, segments_to_release, nullptr, std::move(extra_logs))
+    {}
 
     inline ~reclaim_timer();
 
@@ -1259,7 +1265,7 @@ segment::occupancy() {
 thread_local reclaim_timer* reclaim_timer::_active_timer;
 thread_local clock::duration reclaim_timer::_duration_threshold;
 
-reclaim_timer::reclaim_timer(const char* name, is_preemptible preemptible, size_t memory_to_release, size_t segments_to_release, tracker::impl* tracker)
+reclaim_timer::reclaim_timer(const char* name, is_preemptible preemptible, size_t memory_to_release, size_t segments_to_release, tracker::impl* tracker, extra_logger extra_logs)
     : _parent(_active_timer)
     , _name(name)
     , _preemptible(preemptible)
@@ -1268,6 +1274,7 @@ reclaim_timer::reclaim_timer(const char* name, is_preemptible preemptible, size_
     , _reserve_goal(shard_segment_pool.current_emergency_reserve_goal())
     , _reserve_max(shard_segment_pool.emergency_reserve_max())
     , _tracker(tracker ? tracker : _parent ? _parent->_tracker : nullptr)
+    , _extra_logs(std::move(extra_logs))
     , _debug_enabled(timing_logger.is_enabled(logging::log_level::debug))
 {
     if (!_active_timer) {
@@ -1342,6 +1349,7 @@ void reclaim_timer::report() const noexcept {
                       _reserve_goal, _reserve_max,
                       msg_extra);
     log_if_any(info_level, "segments to release", _segments_to_release);
+    _extra_logs(info_level);
     if (_memory_released > 0) {
         auto bytes_per_second =
             static_cast<float>(_memory_released) / std::chrono::duration_cast<std::chrono::duration<float>>(_duration).count();
