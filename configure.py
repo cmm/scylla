@@ -1725,6 +1725,7 @@ abseil_libs = ['absl/' + lib for lib in [
     'base/libabsl_base.a',
     'base/libabsl_raw_logging_internal.a',
     'profiling/libabsl_exponential_biased.a',
+    'strings/libabsl_strings.a',
     'base/libabsl_throw_delegate.a']]
 
 args.user_cflags += " " + pkg_config('jsoncpp', '--cflags')
